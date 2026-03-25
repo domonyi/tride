@@ -265,10 +265,19 @@ body,
   overflow: hidden;
 }
 
+.terminal-column {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .terminal-area {
   flex: 1;
   min-width: 0;
   display: flex;
+  min-height: 0;
 }
 
 /* ── Terminal Grid ───────────────────────────────────────────────────── */
@@ -443,12 +452,22 @@ body,
 }
 
 .code-editor-tree {
-  width: 180px;
-  min-width: 120px;
   flex-shrink: 0;
   overflow: auto;
-  border-right: 1px solid var(--border);
   background: var(--bg-secondary);
+}
+
+.code-editor-tree-resize {
+  width: 4px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+  border-right: 1px solid var(--border);
+  transition: background 0.15s;
+}
+
+.code-editor-tree-resize:hover {
+  background: var(--accent, #007acc);
 }
 
 .code-editor-main {

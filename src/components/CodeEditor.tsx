@@ -302,9 +302,45 @@ export function CodeEditor() {
   const restoredRef = useRef(false);
   const versionRef = useRef<Map<string, number>>(new Map());
 
+  const treeRef = useRef<HTMLDivElement>(null);
   const activeProject = state.projects.find((p) => p.id === state.activeProjectId);
   const activeTerminal = activeProject?.terminals.find((t) => t.id === state.activeTerminalId);
   const rootPath = activeTerminal?.cwd || activeProject?.path || null;
+  const explorerVisible = state.explorerVisible;
+  const explorerWidth = state.explorerWidth;
+
+  const onTreeResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = treeRef.current?.offsetWidth ?? explorerWidth;
+
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed;inset:0;z-index:9999;cursor:col-resize;";
+    document.body.appendChild(overlay);
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const newWidth = Math.max(120, Math.min(startWidth + (ev.clientX - startX), 500));
+      if (treeRef.current) {
+        treeRef.current.style.width = `${newWidth}px`;
+      }
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      overlay.remove();
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      if (treeRef.current) {
+        dispatch({ type: "SET_EXPLORER_WIDTH", width: treeRef.current.offsetWidth });
+      }
+    };
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, [explorerWidth, dispatch]);
 
   // LSP — handles hover, completion, diagnostics via real tsserver
   const lsp = useLsp(monacoInstance, rootPath);
@@ -409,9 +445,14 @@ export function CodeEditor() {
 
   return (
     <div className="code-editor-layout">
-      <div className="code-editor-tree">
-        <FileTree key={rootPath} rootPath={rootPath} onFileSelect={openFile} selectedFile={activeTab} />
-      </div>
+      {explorerVisible && (
+        <>
+          <div className="code-editor-tree" ref={treeRef} style={{ width: explorerWidth }}>
+            <FileTree key={rootPath} rootPath={rootPath} onFileSelect={openFile} selectedFile={activeTab} />
+          </div>
+          <div className="code-editor-tree-resize" onMouseDown={onTreeResizeStart} />
+        </>
+      )}
       <div className="code-editor-main">
         {tabs.length > 0 && (
           <div className="code-editor-tab-bar">

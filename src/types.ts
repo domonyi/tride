@@ -32,6 +32,8 @@ export interface AppState {
   sidebarVisible: boolean;
   sidebarWidth: number;
   lastOpenedFile: string | null;
+  explorerVisible: boolean;
+  explorerWidth: number;
 }
 
 export type AppAction =
@@ -47,4 +49,6 @@ export type AppAction =
   | { type: "TOGGLE_SIDEBAR" }
   | { type: "SET_SIDEBAR_WIDTH"; width: number }
   | { type: "SET_LAST_OPENED_FILE"; path: string | null }
+  | { type: "TOGGLE_EXPLORER" }
+  | { type: "SET_EXPLORER_WIDTH"; width: number }
   | { type: "RESTORE_SESSION"; state: Partial<AppState> };

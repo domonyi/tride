@@ -62,7 +62,7 @@ function AppContent() {
 
       if (e.ctrlKey && e.key === "b") {
         e.preventDefault();
-        dispatch({ type: "TOGGLE_SIDEBAR" });
+        dispatch({ type: "TOGGLE_EXPLORER" });
       }
     };
     window.addEventListener("keydown", handler);
@@ -72,13 +72,15 @@ function AppContent() {
   return (
     <div className="app">
       <TitleBar />
-      <div className="tab-bar">
-        <ProjectTabs />
-        <TerminalTabs />
-      </div>
       <div className="main-area">
-        <div className="terminal-area">
-          <TerminalGrid />
+        <div className="terminal-column">
+          <div className="tab-bar">
+            <ProjectTabs />
+            <TerminalTabs />
+          </div>
+          <div className="terminal-area">
+            <TerminalGrid />
+          </div>
         </div>
         <Sidebar />
       </div>

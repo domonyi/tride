@@ -9,6 +9,8 @@ export const initialState: AppState = {
   sidebarVisible: true,
   sidebarWidth: 340,
   lastOpenedFile: null,
+  explorerVisible: true,
+  explorerWidth: 180,
 };
 
 export function appReducer(state: AppState, action: AppAction): AppState {
@@ -88,6 +90,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "SET_LAST_OPENED_FILE":
       return { ...state, lastOpenedFile: action.path };
+
+    case "TOGGLE_EXPLORER":
+      return { ...state, explorerVisible: !state.explorerVisible };
+
+    case "SET_EXPLORER_WIDTH":
+      return { ...state, explorerWidth: action.width };
 
     case "RESTORE_SESSION":
       return { ...state, ...action.state };
