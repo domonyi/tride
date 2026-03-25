@@ -20,7 +20,7 @@ export function Sidebar() {
     const startX = e.clientX;
     const startWidth = sidebarRef.current?.offsetWidth ?? 340;
 
-    // Block iframes from stealing mouse events during drag
+    // Block child elements from stealing mouse events during drag
     const overlay = document.createElement("div");
     overlay.style.cssText = "position:fixed;inset:0;z-index:9999;cursor:col-resize;";
     document.body.appendChild(overlay);

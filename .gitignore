@@ -3,7 +3,3 @@ dist/
 target/
 .vite/
 *.log
-theia-ide/src-gen/
-theia-ide/lib/
-theia-ide/build-native.bat
-theia-ide/build-pty.bat
