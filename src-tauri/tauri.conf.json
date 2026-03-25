@@ -1,0 +1,29 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicmcphee/vscode-oss/main/core/tauri/schema.json",
+  "productName": "AiTerminal",
+  "version": "0.1.0",
+  "identifier": "com.aiterminal.app",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "AI Terminal",
+        "width": 1400,
+        "height": 900,
+        "minWidth": 800,
+        "minHeight": 600,
+        "decorations": false,
+        "resizable": true,
+        "theme": "Dark"
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  }
+}
