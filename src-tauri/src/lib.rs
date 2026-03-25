@@ -1,4 +1,5 @@
 mod fs;
+mod git;
 mod pty;
 
 use pty::PtyManager;
@@ -66,6 +67,79 @@ fn write_file(path: String, content: String) -> Result<(), String> {
     fs::write_file(&path, &content)
 }
 
+// ── Git Commands ────────────────────────────────────────────────────────────
+// All git commands are async to avoid blocking the main thread.
+
+#[tauri::command]
+async fn git_status(cwd: String) -> Result<Vec<git::GitFileStatus>, String> {
+    tokio::task::spawn_blocking(move || git::status(&cwd))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[tauri::command]
+async fn git_diff(cwd: String, file_path: String, staged: bool) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || git::diff(&cwd, &file_path, staged))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[tauri::command]
+async fn git_show_head(cwd: String, file_path: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || git::show_head(&cwd, &file_path))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[tauri::command]
+async fn git_log(cwd: String, count: u32) -> Result<Vec<git::GitCommitInfo>, String> {
+    tokio::task::spawn_blocking(move || git::log(&cwd, count))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[tauri::command]
+async fn git_branches(cwd: String) -> Result<Vec<git::GitBranchInfo>, String> {
+    tokio::task::spawn_blocking(move || git::branches(&cwd))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[tauri::command]
+async fn git_current_branch(cwd: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || git::current_branch(&cwd))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[tauri::command]
+async fn git_stage(cwd: String, path: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || git::stage(&cwd, &path))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[tauri::command]
+async fn git_unstage(cwd: String, path: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || git::unstage(&cwd, &path))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[tauri::command]
+async fn git_commit(cwd: String, message: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || git::commit(&cwd, &message))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[tauri::command]
+async fn git_push(cwd: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || git::push(&cwd))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
 // ── Utility Commands ────────────────────────────────────────────────────────
 
 #[tauri::command]
@@ -95,6 +169,16 @@ pub fn run() {
             list_dir,
             read_file,
             write_file,
+            git_status,
+            git_diff,
+            git_show_head,
+            git_log,
+            git_branches,
+            git_current_branch,
+            git_stage,
+            git_unstage,
+            git_commit,
+            git_push,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

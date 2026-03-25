@@ -1,7 +1,11 @@
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, lazy, Suspense } from "react";
 import { useAppState, useAppDispatch } from "../state/context";
 import { CodeEditor } from "./CodeEditor";
 import type { SidebarMode } from "../types";
+
+const DiffViewer = lazy(() => import("./DiffViewer").then((m) => ({ default: m.DiffViewer })));
+const GitPanel = lazy(() => import("./GitPanel").then((m) => ({ default: m.GitPanel })));
+const BrowserPanel = lazy(() => import("./BrowserPanel").then((m) => ({ default: m.BrowserPanel })));
 
 const SIDEBAR_MODES: { key: SidebarMode; label: string; shortcut: string }[] = [
   { key: "code", label: "CODE", shortcut: "F1" },
@@ -69,27 +73,27 @@ export function Sidebar() {
           <div className="sidebar-panel" style={{ display: state.sidebarMode === "code" ? "flex" : "none" }}>
             <CodeEditor />
           </div>
-          <div className="sidebar-panel" style={{ display: state.sidebarMode === "diff" ? "flex" : "none" }}>
-            <div className="sidebar-placeholder">
-              <div className="placeholder-icon">+/-</div>
-              <p>Diff Viewer</p>
-              <p className="placeholder-sub">Syntax-highlighted diff of focused terminal's worktree</p>
+          {state.sidebarMode === "diff" && (
+            <div className="sidebar-panel" style={{ display: "flex" }}>
+              <Suspense fallback={<div className="code-editor-loading">Loading...</div>}>
+                <DiffViewer />
+              </Suspense>
             </div>
-          </div>
-          <div className="sidebar-panel" style={{ display: state.sidebarMode === "git" ? "flex" : "none" }}>
-            <div className="sidebar-placeholder">
-              <div className="placeholder-icon">*</div>
-              <p>Git Graph</p>
-              <p className="placeholder-sub">Branch visualization + commit history</p>
+          )}
+          {state.sidebarMode === "git" && (
+            <div className="sidebar-panel" style={{ display: "flex" }}>
+              <Suspense fallback={<div className="code-editor-loading">Loading...</div>}>
+                <GitPanel />
+              </Suspense>
             </div>
-          </div>
-          <div className="sidebar-panel" style={{ display: state.sidebarMode === "browser" ? "flex" : "none" }}>
-            <div className="sidebar-placeholder">
-              <div className="placeholder-icon">W</div>
-              <p>Browser Preview</p>
-              <p className="placeholder-sub">Live preview for frontend work</p>
+          )}
+          {state.sidebarMode === "browser" && (
+            <div className="sidebar-panel" style={{ display: "flex" }}>
+              <Suspense fallback={<div className="code-editor-loading">Loading...</div>}>
+                <BrowserPanel />
+              </Suspense>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
