@@ -20,11 +20,13 @@ function getLanguage(path: string): string {
   return map[ext || ""] || "plaintext";
 }
 
-/** Map our custom language IDs to LSP languageId strings */
+/** Map file extensions to LSP languageId strings */
 function getLspLanguageId(path: string): string {
   const ext = path.split(".").pop()?.toLowerCase();
-  if (ext === "ts" || ext === "tsx") return "typescript";
-  if (ext === "js" || ext === "jsx") return "javascript";
+  if (ext === "tsx") return "typescriptreact";
+  if (ext === "ts") return "typescript";
+  if (ext === "jsx") return "javascriptreact";
+  if (ext === "js") return "javascript";
   return ext || "plaintext";
 }
 
