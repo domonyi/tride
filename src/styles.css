@@ -427,155 +427,17 @@ body,
   flex-direction: column;
 }
 
-/* ── Code Editor Layout ───────────────────────────────────────────────── */
-.code-editor-layout {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.code-editor-tree {
-  width: 180px;
-  min-width: 120px;
-  flex-shrink: 0;
-  overflow: auto;
-  border-right: 1px solid var(--border);
-  background: var(--bg-secondary);
-}
-
-.code-editor-main {
+/* ── VS Code Embed ───────────────────────────────────────────────────── */
+.vscode-embed {
   flex: 1;
   display: flex;
-  flex-direction: column;
-  min-width: 0;
   min-height: 0;
 }
 
-.code-editor-tab-bar {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 8px;
-  height: 30px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.code-editor-tab {
-  font-size: 12px;
-  color: var(--text-secondary);
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
-}
-
-.code-editor-tab.active {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-
-.code-editor-modified {
-  color: var(--yellow);
-  margin-left: 4px;
-}
-
-.code-editor-save {
-  margin-left: auto;
-  padding: 2px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 11px;
-  transition: all 0.15s;
-}
-
-.code-editor-save:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-
-.code-editor-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.vscode-iframe {
   flex: 1;
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.code-editor-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: var(--text-muted);
-}
-
-/* ── File Tree ───────────────────────────────────────────────────────── */
-.file-tree {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.file-tree-header {
-  padding: 6px 12px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.file-tree-list {
-  flex: 1;
-  overflow: auto;
-  padding: 4px 0;
-}
-
-.file-tree-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 8px;
-  cursor: pointer;
-  font-size: 12px;
-  color: var(--text-secondary);
-  transition: background 0.1s;
-  white-space: nowrap;
-}
-
-.file-tree-item:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.file-tree-item.selected {
-  background: var(--bg-active);
-  color: var(--text-primary);
-}
-
-.file-tree-icon {
-  font-size: 10px;
-  font-family: monospace;
-  color: var(--text-muted);
-  width: 16px;
-  text-align: center;
-  flex-shrink: 0;
-}
-
-.file-tree-item.folder .file-tree-icon {
-  color: var(--text-secondary);
-}
-
-.file-tree-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  border: none;
+  background: var(--bg-primary);
 }
 
 .sidebar-placeholder {

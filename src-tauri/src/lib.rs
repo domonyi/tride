@@ -66,6 +66,65 @@ fn write_file(path: String, content: String) -> Result<(), String> {
     fs::write_file(&path, &content)
 }
 
+// ── Theia Server Command ────────────────────────────────────────────────────
+
+#[tauri::command]
+fn start_theia(port: u16, root_dir: String) -> Result<(), String> {
+    let node_path = if cfg!(target_os = "windows") {
+        // Use Node 20 for Theia
+        let home = std::env::var("USERPROFILE").unwrap_or_default();
+        let fnm_node = format!(
+            "{}\\AppData\\Roaming\\fnm\\node-versions\\v20.20.2\\installation\\node.exe",
+            home
+        );
+        if std::path::Path::new(&fnm_node).exists() {
+            fnm_node
+        } else {
+            "node".to_string()
+        }
+    } else {
+        "node".to_string()
+    };
+
+    let theia_dir = std::env::current_exe()
+        .map_err(|e| e.to_string())?
+        .parent()
+        .ok_or("no parent dir")?
+        .to_path_buf();
+
+    // Look for theia-ide relative to the exe, or use the dev path
+    let theia_main = {
+        let dev_path = std::path::PathBuf::from("C:\\DEV\\AiTerminal\\theia-ide\\src-gen\\backend\\main.js");
+        if dev_path.exists() {
+            dev_path
+        } else {
+            return Err("Theia main.js not found".to_string());
+        }
+    };
+
+    std::thread::spawn(move || {
+        let mut cmd = std::process::Command::new(&node_path);
+        cmd.arg(theia_main.to_string_lossy().to_string())
+            .arg(format!("--port={}", port))
+            .arg("--hostname=localhost")
+            .arg(&root_dir)
+            .current_dir("C:\\DEV\\AiTerminal\\theia-ide")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null());
+
+        match cmd.spawn() {
+            Ok(_child) => {
+                // Keep process running
+            }
+            Err(e) => {
+                eprintln!("Failed to start Theia: {}", e);
+            }
+        }
+    });
+
+    Ok(())
+}
+
 // ── App Entry ───────────────────────────────────────────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -82,6 +141,7 @@ pub fn run() {
             resize_terminal,
             kill_terminal,
             list_terminals,
+            start_theia,
             list_dir,
             read_file,
             write_file,

@@ -20,6 +20,11 @@ export function Sidebar() {
     const startX = e.clientX;
     const startWidth = sidebarRef.current?.offsetWidth ?? 340;
 
+    // Block iframes from stealing mouse events during drag
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed;inset:0;z-index:9999;cursor:col-resize;";
+    document.body.appendChild(overlay);
+
     const onMouseMove = (e: MouseEvent) => {
       const delta = startX - e.clientX;
       const newWidth = Math.max(200, Math.min(startWidth + delta, window.innerWidth * 0.7));
@@ -31,6 +36,7 @@ export function Sidebar() {
     const onMouseUp = () => {
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
+      overlay.remove();
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
     };

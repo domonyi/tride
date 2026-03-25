@@ -1,198 +1,103 @@
-import { useState, useCallback, useRef, useEffect } from "react";
-import Editor, { type OnMount } from "@monaco-editor/react";
-import type { editor } from "monaco-editor";
+import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { FileTree } from "./FileTree";
 import { useAppState } from "../state/context";
 
-function getLanguage(path: string): string {
-  const ext = path.split(".").pop()?.toLowerCase();
-  switch (ext) {
-    case "ts":
-    case "tsx":
-      return "typescript";
-    case "js":
-    case "jsx":
-      return "javascript";
-    case "rs":
-      return "rust";
-    case "py":
-      return "python";
-    case "json":
-      return "json";
-    case "css":
-      return "css";
-    case "html":
-      return "html";
-    case "md":
-      return "markdown";
-    case "toml":
-      return "ini";
-    case "yaml":
-    case "yml":
-      return "yaml";
-    case "sh":
-    case "bash":
-      return "shell";
-    case "sql":
-      return "sql";
-    case "go":
-      return "go";
-    case "java":
-      return "java";
-    case "cpp":
-    case "cc":
-    case "cxx":
-      return "cpp";
-    case "c":
-    case "h":
-      return "c";
-    default:
-      return "plaintext";
-  }
-}
+const THEIA_PORT = 3100;
+let theiaStarted = false;
 
 export function CodeEditor() {
   const state = useAppState();
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [fileContent, setFileContent] = useState<string>("");
-  const [modified, setModified] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const startedRef = useRef(false);
 
   const activeProject = state.projects.find((p) => p.id === state.activeProjectId);
   const activeTerminal = activeProject?.terminals.find(
     (t) => t.id === state.activeTerminalId
   );
-  const rootPath = activeTerminal?.cwd || activeProject?.path || null;
+  const folderPath = activeTerminal?.cwd || activeProject?.path || null;
 
-  const openFile = useCallback(async (path: string) => {
-    setLoading(true);
-    try {
-      const content = await invoke<string>("read_file", { path });
-      setSelectedFile(path);
-      setFileContent(content);
-      setModified(false);
-    } catch (e) {
-      console.error("Failed to read file:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const saveFile = useCallback(async () => {
-    if (!selectedFile || !editorRef.current) return;
-    const content = editorRef.current.getValue();
-    try {
-      await invoke("write_file", { path: selectedFile, content });
-      setModified(false);
-    } catch (e) {
-      console.error("Failed to save file:", e);
-    }
-  }, [selectedFile]);
-
-  // Ctrl+S to save
-  const handleEditorMount: OnMount = (editor) => {
-    editorRef.current = editor;
-    editor.addCommand(
-      // Monaco KeyMod.CtrlCmd | KeyCode.KeyS
-      2048 | 49, // CtrlCmd + S
-      () => saveFile()
-    );
-  };
-
-  // Re-bind save when saveFile changes
   useEffect(() => {
-    if (editorRef.current) {
-      editorRef.current.addCommand(2048 | 49, () => saveFile());
+    if (startedRef.current) {
+      if (theiaStarted) setReady(true);
+      return;
     }
-  }, [saveFile]);
+    if (!folderPath) return;
 
-  if (!rootPath) {
+    startedRef.current = true;
+
+    const startTheia = async () => {
+      try {
+        // Check if already running
+        try {
+          await fetch(`http://localhost:${THEIA_PORT}`, { mode: "no-cors" });
+          theiaStarted = true;
+          setReady(true);
+          return;
+        } catch {}
+
+        // Start via Tauri command
+        await invoke("start_theia", {
+          port: THEIA_PORT,
+          rootDir: folderPath,
+        });
+
+        // Poll until ready
+        for (let i = 0; i < 30; i++) {
+          await new Promise((r) => setTimeout(r, 1000));
+          try {
+            await fetch(`http://localhost:${THEIA_PORT}`, { mode: "no-cors" });
+            theiaStarted = true;
+            setReady(true);
+            return;
+          } catch {}
+        }
+        setError("Theia did not start in time");
+      } catch (e) {
+        setError(`Failed to start Theia: ${e}`);
+      }
+    };
+
+    startTheia();
+  }, [folderPath]);
+
+  if (error) {
+    return (
+      <div className="sidebar-placeholder">
+        <div className="placeholder-icon">!</div>
+        <p>Failed to start Theia</p>
+        <p className="placeholder-sub">{error}</p>
+      </div>
+    );
+  }
+
+  if (!folderPath) {
     return (
       <div className="sidebar-placeholder">
         <div className="placeholder-icon">{"</>"}</div>
         <p>No project selected</p>
-        <p className="placeholder-sub">Add a project to browse and edit files</p>
+        <p className="placeholder-sub">Add a project to open the editor</p>
+      </div>
+    );
+  }
+
+  if (!ready) {
+    return (
+      <div className="sidebar-placeholder">
+        <div className="placeholder-icon">{"</>"}</div>
+        <p>Starting Theia IDE...</p>
+        <p className="placeholder-sub">First launch takes a few seconds</p>
       </div>
     );
   }
 
   return (
-    <div className="code-editor-layout">
-      <div className="code-editor-tree">
-        <FileTree rootPath={rootPath} onFileSelect={openFile} selectedFile={selectedFile} />
-      </div>
-      <div className="code-editor-main">
-        {selectedFile ? (
-          <>
-            <div className="code-editor-tab-bar">
-              <span className="code-editor-tab active">
-                {selectedFile.split(/[/\\]/).pop()}
-                {modified && <span className="code-editor-modified">&bull;</span>}
-              </span>
-              {modified && (
-                <button className="code-editor-save" onClick={saveFile}>
-                  Save
-                </button>
-              )}
-            </div>
-            <Editor
-              height="100%"
-              language={getLanguage(selectedFile)}
-              value={fileContent}
-              theme="aiterminal-dark"
-              onChange={() => setModified(true)}
-              onMount={handleEditorMount}
-              loading={<div className="code-editor-loading">Loading...</div>}
-              beforeMount={(monaco) => {
-                monaco.editor.defineTheme("aiterminal-dark", {
-                  base: "vs-dark",
-                  inherit: true,
-                  rules: [],
-                  colors: {
-                    "editor.background": "#181818",
-                    "editor.foreground": "#d4d4d4",
-                    "editorLineNumber.foreground": "#444444",
-                    "editorLineNumber.activeForeground": "#777777",
-                    "editor.selectionBackground": "#3a3a3a",
-                    "editor.lineHighlightBackground": "#1e1e1e",
-                    "editorCursor.foreground": "#d4d4d4",
-                    "editorWidget.background": "#1e1e1e",
-                    "editorWidget.border": "#2a2a2a",
-                    "input.background": "#111111",
-                    "input.border": "#2a2a2a",
-                    "list.activeSelectionBackground": "#333333",
-                    "list.hoverBackground": "#2a2a2a",
-                    "sideBar.background": "#111111",
-                    "sideBarTitle.foreground": "#777777",
-                  },
-                });
-              }}
-              options={{
-                minimap: { enabled: false },
-                scrollBeyondLastLine: false,
-                fontSize: 13,
-                fontFamily: "'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, monospace",
-                lineNumbers: "on",
-                renderLineHighlight: "line",
-                smoothScrolling: true,
-                padding: { top: 8 },
-                overviewRulerBorder: false,
-                hideCursorInOverviewRuler: true,
-                scrollbar: {
-                  verticalScrollbarSize: 8,
-                  horizontalScrollbarSize: 8,
-                },
-              }}
-            />
-          </>
-        ) : (
-          <div className="code-editor-empty">
-            <p>Select a file to edit</p>
-          </div>
-        )}
-      </div>
+    <div className="vscode-embed">
+      <iframe
+        src={`http://localhost:${THEIA_PORT}/#${folderPath.replace(/\\/g, "/")}`}
+        className="vscode-iframe"
+        title="Theia IDE"
+      />
     </div>
   );
 }
