@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useAppState } from "../state/context";
 
-const THEIA_PORT = 3100;
-let theiaStarted = false;
+const OPENVSCODE_PORT = 3000;
+let serverStarted = false;
 
 export function CodeEditor() {
   const state = useAppState();
@@ -19,71 +19,70 @@ export function CodeEditor() {
   );
   const folderPath = activeTerminal?.cwd || activeProject?.path || null;
 
-  // Start Theia server (once)
+  const vsUrl = `http://localhost:${OPENVSCODE_PORT}/?folder=/home/workspace`;
+
+  // Start OpenVSCode Server container (once)
   useEffect(() => {
     if (startedRef.current) {
-      if (theiaStarted) setReady(true);
+      if (serverStarted) setReady(true);
       return;
     }
     if (!folderPath) return;
 
     startedRef.current = true;
 
-    const startTheia = async () => {
+    const startServer = async () => {
       try {
         try {
-          await fetch(`http://localhost:${THEIA_PORT}`, { mode: "no-cors" });
-          theiaStarted = true;
+          await fetch(`http://localhost:${OPENVSCODE_PORT}`, { mode: "no-cors" });
+          serverStarted = true;
           setReady(true);
           return;
         } catch {}
 
-        await invoke("start_theia", {
-          port: THEIA_PORT,
+        await invoke("start_openvscode", {
+          port: OPENVSCODE_PORT,
           rootDir: folderPath,
         });
 
-        for (let i = 0; i < 30; i++) {
+        for (let i = 0; i < 45; i++) {
           await new Promise((r) => setTimeout(r, 1000));
           try {
-            await fetch(`http://localhost:${THEIA_PORT}`, { mode: "no-cors" });
-            theiaStarted = true;
+            await fetch(`http://localhost:${OPENVSCODE_PORT}`, { mode: "no-cors" });
+            serverStarted = true;
             setReady(true);
             return;
           } catch {}
         }
-        setError("Theia did not start in time");
+        setError("OpenVSCode Server did not start in time. Is Docker running?");
       } catch (e) {
-        setError(`Failed to start Theia: ${e}`);
+        setError(`Failed to start IDE: ${e}`);
       }
     };
 
-    startTheia();
+    startServer();
   }, [folderPath]);
 
-  // Update iframe when folder changes — must force full reload
+  // Update iframe when folder changes
   useEffect(() => {
     if (!ready || !folderPath || !iframeRef.current) return;
     if (folderPath === lastFolderRef.current) return;
 
     lastFolderRef.current = folderPath;
-    const normalized = folderPath.replace(/\\/g, "/");
-    const url = `http://localhost:${THEIA_PORT}/#${normalized}`;
 
-    // Force reload by briefly setting to blank then back
     iframeRef.current.src = "about:blank";
     setTimeout(() => {
       if (iframeRef.current) {
-        iframeRef.current.src = url;
+        iframeRef.current.src = vsUrl;
       }
     }, 50);
-  }, [ready, folderPath]);
+  }, [ready, folderPath, vsUrl]);
 
   if (error) {
     return (
       <div className="sidebar-placeholder">
         <div className="placeholder-icon">!</div>
-        <p>Failed to start Theia</p>
+        <p>Failed to start IDE</p>
         <p className="placeholder-sub">{error}</p>
       </div>
     );
@@ -101,23 +100,22 @@ export function CodeEditor() {
 
   if (!ready) {
     return (
-      <div className="sidebar-placeholder">
+      <div className="sidebar-placeholder" style={{ background: "#1e1e1e" }}>
         <div className="placeholder-icon">{"</>"}</div>
-        <p>Starting Theia IDE...</p>
-        <p className="placeholder-sub">First launch takes a few seconds</p>
+        <p>Starting IDE...</p>
+        <p className="placeholder-sub">Waiting for Docker container</p>
       </div>
     );
   }
-
-  const normalized = folderPath.replace(/\\/g, "/");
 
   return (
     <div className="vscode-embed">
       <iframe
         ref={iframeRef}
-        src={`http://localhost:${THEIA_PORT}/#${normalized}`}
+        src={vsUrl}
         className="vscode-iframe"
-        title="Theia IDE"
+        title="OpenVSCode Server"
+        style={{ background: "#1e1e1e" }}
       />
     </div>
   );

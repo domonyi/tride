@@ -153,6 +153,75 @@ fn start_theia(port: u16, root_dir: String) -> Result<(), String> {
     Ok(())
 }
 
+// ── OpenVSCode Server Command ───────────────────────────────────────────────
+
+#[tauri::command]
+fn start_openvscode(port: u16, root_dir: String) -> Result<(), String> {
+    // Convert Windows path to Docker mount format
+    let docker_path = root_dir
+        .replace('\\', "/")
+        .replacen("C:", "/c", 1)
+        .replacen("c:", "/c", 1);
+
+    // User data dir for settings isolation
+    let home = std::env::var("USERPROFILE").unwrap_or_default();
+    let user_data = format!("{}\\.aiterminal\\openvscode-data", home).replace('\\', "/")
+        .replacen("C:", "/c", 1)
+        .replacen("c:", "/c", 1);
+
+    // Ensure user data dir exists
+    let _ = std::fs::create_dir_all(format!("{}\\.aiterminal\\openvscode-data", home));
+
+    std::thread::spawn(move || {
+        // Stop any existing container first
+        let _ = std::process::Command::new("docker")
+            .args(["rm", "-f", "aiterminal-openvscode"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status();
+
+        let product_json = format!("{}:/home/.openvscode-server/product.json",
+            format!("{}\\.aiterminal\\openvscode-data\\product.json", std::env::var("USERPROFILE").unwrap_or_default())
+                .replace('\\', "/").replacen("C:", "/c", 1).replacen("c:", "/c", 1));
+
+        let mut cmd = std::process::Command::new("docker");
+        cmd.args([
+            "run", "--rm",
+            "--name", "aiterminal-openvscode",
+            "-p", &format!("{}:3000", port),
+            "-v", &format!("{}:/home/workspace:cached", docker_path),
+            "-v", &format!("{}:/home/userdata:cached", user_data),
+            "-v", &format!("{}:ro", product_json),
+            "gitpod/openvscode-server",
+            "--user-data-dir", "/home/userdata",
+            "--default-folder", "/home/workspace",
+        ]);
+
+        // Hide console on Windows
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x08000000);
+        }
+
+        let log_path = format!(
+            "{}\\openvscode-server.log",
+            std::env::var("USERPROFILE").unwrap_or_default()
+        );
+        if let Ok(log_file) = std::fs::File::create(&log_path) {
+            let err_file = log_file.try_clone().unwrap_or_else(|_| std::fs::File::create(&log_path).unwrap());
+            cmd.stdout(log_file).stderr(err_file);
+        }
+
+        match cmd.spawn() {
+            Ok(_) => {}
+            Err(e) => eprintln!("Failed to start OpenVSCode Server: {}", e),
+        }
+    });
+
+    Ok(())
+}
+
 // ── App Entry ───────────────────────────────────────────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -171,6 +240,7 @@ pub fn run() {
             list_terminals,
             get_home_dir,
             start_theia,
+            start_openvscode,
             list_dir,
             read_file,
             write_file,
