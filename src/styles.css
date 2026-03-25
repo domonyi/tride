@@ -599,16 +599,10 @@ body,
 }
 
 .file-tree-icon {
-  font-size: 10px;
-  font-family: monospace;
-  color: var(--text-muted);
   width: 16px;
-  text-align: center;
+  height: 16px;
   flex-shrink: 0;
-}
-
-.file-tree-item.folder .file-tree-icon {
-  color: var(--text-secondary);
+  object-fit: contain;
 }
 
 .file-tree-name {
