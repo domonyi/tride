@@ -7,6 +7,8 @@ export const initialState: AppState = {
   gridLayout: { rows: 2, cols: 2 },
   sidebarMode: "code",
   sidebarVisible: true,
+  sidebarWidth: 340,
+  lastOpenedFile: null,
 };
 
 export function appReducer(state: AppState, action: AppAction): AppState {
@@ -80,6 +82,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "TOGGLE_SIDEBAR":
       return { ...state, sidebarVisible: !state.sidebarVisible };
+
+    case "SET_SIDEBAR_WIDTH":
+      return { ...state, sidebarWidth: action.width };
+
+    case "SET_LAST_OPENED_FILE":
+      return { ...state, lastOpenedFile: action.path };
 
     case "RESTORE_SESSION":
       return { ...state, ...action.state };

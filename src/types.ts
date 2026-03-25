@@ -21,7 +21,7 @@ export interface GridLayout {
   cols: number;
 }
 
-export type SidebarMode = "code" | "diff" | "git" | "browser";
+export type SidebarMode = "code" | "scm" | "browser";
 
 export interface AppState {
   projects: Project[];
@@ -30,6 +30,8 @@ export interface AppState {
   gridLayout: GridLayout;
   sidebarMode: SidebarMode;
   sidebarVisible: boolean;
+  sidebarWidth: number;
+  lastOpenedFile: string | null;
 }
 
 export type AppAction =
@@ -43,4 +45,6 @@ export type AppAction =
   | { type: "SET_GRID_LAYOUT"; layout: GridLayout }
   | { type: "SET_SIDEBAR_MODE"; mode: SidebarMode }
   | { type: "TOGGLE_SIDEBAR" }
+  | { type: "SET_SIDEBAR_WIDTH"; width: number }
+  | { type: "SET_LAST_OPENED_FILE"; path: string | null }
   | { type: "RESTORE_SESSION"; state: Partial<AppState> };

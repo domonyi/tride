@@ -1,13 +1,16 @@
 mod fs;
 mod git;
+mod lsp;
 mod pty;
 
+use lsp::LspManager;
 use pty::PtyManager;
 use std::sync::Arc;
 use tauri::{AppHandle, State};
 
 struct AppState {
     pty_manager: Arc<PtyManager>,
+    lsp_manager: Arc<LspManager>,
 }
 
 // ── Terminal Commands ───────────────────────────────────────────────────────
@@ -65,6 +68,27 @@ fn read_file(path: String) -> Result<String, String> {
 #[tauri::command]
 fn write_file(path: String, content: String) -> Result<(), String> {
     fs::write_file(&path, &content)
+}
+
+#[tauri::command]
+async fn read_dts_files(base_dir: String, package_name: String) -> Result<Vec<fs::DtsFile>, String> {
+    tokio::task::spawn_blocking(move || fs::read_dts_files(&base_dir, &package_name))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[tauri::command]
+async fn read_all_node_types(base_dir: String) -> Result<Vec<fs::DtsFile>, String> {
+    tokio::task::spawn_blocking(move || fs::read_all_node_types(&base_dir))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[tauri::command]
+async fn read_project_sources(base_dir: String) -> Result<Vec<fs::DtsFile>, String> {
+    tokio::task::spawn_blocking(move || fs::read_project_sources(&base_dir))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
 }
 
 // ── Git Commands ────────────────────────────────────────────────────────────
@@ -140,6 +164,71 @@ async fn git_push(cwd: String) -> Result<String, String> {
         .map_err(|e| format!("Task join error: {}", e))?
 }
 
+#[tauri::command]
+async fn git_commit_files(cwd: String, hash: String) -> Result<Vec<git::GitFileStatus>, String> {
+    tokio::task::spawn_blocking(move || git::commit_files(&cwd, &hash))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[tauri::command]
+async fn git_show_file_at(cwd: String, hash: String, file_path: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || git::show_file_at(&cwd, &hash, &file_path))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[tauri::command]
+async fn git_show_file_at_parent(cwd: String, hash: String, file_path: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || git::show_file_at_parent(&cwd, &hash, &file_path))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[tauri::command]
+async fn git_checkout_branch(cwd: String, branch: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || git::checkout_branch(&cwd, &branch))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[tauri::command]
+async fn git_create_branch(cwd: String, branch: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || git::create_branch(&cwd, &branch))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[tauri::command]
+async fn git_delete_branch(cwd: String, branch: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || git::delete_branch(&cwd, &branch))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
+// ── LSP Commands ────────────────────────────────────────────────────────────
+
+#[tauri::command]
+fn lsp_start(
+    app: AppHandle,
+    state: State<AppState>,
+    id: String,
+    project_root: String,
+) -> Result<(), String> {
+    state.lsp_manager.spawn(&app, &id, &project_root)
+}
+
+#[tauri::command]
+fn lsp_send(state: State<AppState>, id: String, message: String) -> Result<(), String> {
+    state.lsp_manager.send(&id, &message)
+}
+
+#[tauri::command]
+fn lsp_stop(state: State<AppState>, id: String) -> Result<(), String> {
+    state.lsp_manager.kill(&id);
+    Ok(())
+}
+
 // ── Utility Commands ────────────────────────────────────────────────────────
 
 #[tauri::command]
@@ -147,6 +236,14 @@ fn get_home_dir() -> Result<String, String> {
     dirs::home_dir()
         .map(|p| p.to_string_lossy().to_string())
         .ok_or_else(|| "Could not determine home directory".to_string())
+}
+
+#[tauri::command]
+fn get_app_dir() -> Result<String, String> {
+    // Get the directory where the executable lives
+    std::env::current_exe()
+        .map_err(|e| format!("Failed to get exe path: {}", e))
+        .map(|p| p.parent().unwrap_or(&p).to_string_lossy().to_string())
 }
 
 // ── App Entry ───────────────────────────────────────────────────────────────
@@ -158,6 +255,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState {
             pty_manager: Arc::new(PtyManager::new()),
+            lsp_manager: Arc::new(LspManager::new()),
         })
         .invoke_handler(tauri::generate_handler![
             spawn_terminal,
@@ -169,6 +267,9 @@ pub fn run() {
             list_dir,
             read_file,
             write_file,
+            read_dts_files,
+            read_project_sources,
+            read_all_node_types,
             git_status,
             git_diff,
             git_show_head,
@@ -179,6 +280,16 @@ pub fn run() {
             git_unstage,
             git_commit,
             git_push,
+            git_commit_files,
+            git_show_file_at,
+            git_show_file_at_parent,
+            git_checkout_branch,
+            git_create_branch,
+            git_delete_branch,
+            lsp_start,
+            lsp_send,
+            lsp_stop,
+            get_app_dir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -193,3 +193,50 @@ pub fn push(cwd: &str) -> Result<String, String> {
     let output = run_git(cwd, &["push", "origin", &branch])?;
     Ok(output.trim().to_string())
 }
+
+/// Get files changed in a specific commit
+pub fn commit_files(cwd: &str, hash: &str) -> Result<Vec<GitFileStatus>, String> {
+    let output = run_git(cwd, &["diff-tree", "--no-commit-id", "-r", "--name-status", hash])?;
+    let mut files = Vec::new();
+    for line in output.lines() {
+        let parts: Vec<&str> = line.splitn(2, '\t').collect();
+        if parts.len() == 2 {
+            files.push(GitFileStatus {
+                status: parts[0].to_string(),
+                path: parts[1].to_string(),
+                staged: true,
+            });
+        }
+    }
+    Ok(files)
+}
+
+/// Get file content at a specific commit
+pub fn show_file_at(cwd: &str, hash: &str, file_path: &str) -> Result<String, String> {
+    let spec = format!("{}:{}", hash, file_path.replace('\\', "/"));
+    run_git(cwd, &["show", &spec])
+}
+
+/// Get file content at the parent of a specific commit
+pub fn show_file_at_parent(cwd: &str, hash: &str, file_path: &str) -> Result<String, String> {
+    let spec = format!("{}~1:{}", hash, file_path.replace('\\', "/"));
+    run_git(cwd, &["show", &spec])
+}
+
+/// Switch to a branch
+pub fn checkout_branch(cwd: &str, branch: &str) -> Result<String, String> {
+    let output = run_git(cwd, &["checkout", branch])?;
+    Ok(output.trim().to_string())
+}
+
+/// Create and switch to a new branch
+pub fn create_branch(cwd: &str, branch: &str) -> Result<String, String> {
+    let output = run_git(cwd, &["checkout", "-b", branch])?;
+    Ok(output.trim().to_string())
+}
+
+/// Delete a branch
+pub fn delete_branch(cwd: &str, branch: &str) -> Result<String, String> {
+    let output = run_git(cwd, &["branch", "-d", branch])?;
+    Ok(output.trim().to_string())
+}

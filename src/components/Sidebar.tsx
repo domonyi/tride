@@ -3,15 +3,13 @@ import { useAppState, useAppDispatch } from "../state/context";
 import { CodeEditor } from "./CodeEditor";
 import type { SidebarMode } from "../types";
 
-const DiffViewer = lazy(() => import("./DiffViewer").then((m) => ({ default: m.DiffViewer })));
-const GitPanel = lazy(() => import("./GitPanel").then((m) => ({ default: m.GitPanel })));
+const SourceControl = lazy(() => import("./SourceControl").then((m) => ({ default: m.SourceControl })));
 const BrowserPanel = lazy(() => import("./BrowserPanel").then((m) => ({ default: m.BrowserPanel })));
 
 const SIDEBAR_MODES: { key: SidebarMode; label: string; shortcut: string }[] = [
   { key: "code", label: "CODE", shortcut: "F1" },
-  { key: "diff", label: "DIFF", shortcut: "F2" },
-  { key: "git", label: "GIT", shortcut: "F3" },
-  { key: "browser", label: "BROWSER", shortcut: "F4" },
+  { key: "scm", label: "SOURCE CONTROL", shortcut: "F2" },
+  { key: "browser", label: "BROWSER", shortcut: "F3" },
 ];
 
 export function Sidebar() {
@@ -22,9 +20,8 @@ export function Sidebar() {
   const onResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     const startX = e.clientX;
-    const startWidth = sidebarRef.current?.offsetWidth ?? 340;
+    const startWidth = sidebarRef.current?.offsetWidth ?? state.sidebarWidth;
 
-    // Block child elements from stealing mouse events during drag
     const overlay = document.createElement("div");
     overlay.style.cssText = "position:fixed;inset:0;z-index:9999;cursor:col-resize;";
     document.body.appendChild(overlay);
@@ -43,18 +40,21 @@ export function Sidebar() {
       overlay.remove();
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
+      if (sidebarRef.current) {
+        dispatch({ type: "SET_SIDEBAR_WIDTH", width: sidebarRef.current.offsetWidth });
+      }
     };
 
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", onMouseUp);
-  }, []);
+  }, [state.sidebarWidth, dispatch]);
 
   if (!state.sidebarVisible) return null;
 
   return (
-    <div className="sidebar" ref={sidebarRef}>
+    <div className="sidebar" ref={sidebarRef} style={{ width: state.sidebarWidth }}>
       <div className="sidebar-resize-handle" onMouseDown={onResizeStart} />
       <div className="sidebar-inner">
         <div className="sidebar-tabs">
@@ -73,17 +73,10 @@ export function Sidebar() {
           <div className="sidebar-panel" style={{ display: state.sidebarMode === "code" ? "flex" : "none" }}>
             <CodeEditor />
           </div>
-          {state.sidebarMode === "diff" && (
+          {state.sidebarMode === "scm" && (
             <div className="sidebar-panel" style={{ display: "flex" }}>
               <Suspense fallback={<div className="code-editor-loading">Loading...</div>}>
-                <DiffViewer />
-              </Suspense>
-            </div>
-          )}
-          {state.sidebarMode === "git" && (
-            <div className="sidebar-panel" style={{ display: "flex" }}>
-              <Suspense fallback={<div className="code-editor-loading">Loading...</div>}>
-                <GitPanel />
+                <SourceControl />
               </Suspense>
             </div>
           )}

@@ -747,8 +747,8 @@ body,
   background: var(--text-muted);
 }
 
-/* ── Diff Viewer ─────────────────────────────────────────────────────── */
-.diff-viewer {
+/* ── Source Control Panel ─────────────────────────────────────────────── */
+.scm-panel {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -756,157 +756,180 @@ body,
   overflow: hidden;
 }
 
-.diff-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.diff-refresh-btn {
-  padding: 3px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 11px;
-  transition: all 0.15s;
-}
-
-.diff-refresh-btn:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-
-.diff-toggle {
-  display: flex;
-  gap: 1px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-}
-
-.diff-toggle-btn {
-  padding: 2px 8px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 11px;
-  transition: all 0.15s;
-}
-
-.diff-toggle-btn:hover {
-  color: var(--text-secondary);
-}
-
-.diff-toggle-btn.active {
-  background: var(--bg-active);
-  color: var(--text-primary);
-}
-
-.diff-file-count {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-left: auto;
-}
-
-.diff-file-list {
-  flex-shrink: 0;
-  max-height: 200px;
-  overflow-y: auto;
-  border-bottom: 1px solid var(--border);
-}
-
-.diff-empty {
-  padding: 16px;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.diff-file-item {
+/* Header with branch selector */
+.scm-header {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: background 0.1s;
-}
-
-.diff-file-item:hover {
-  background: var(--bg-hover);
-}
-
-.diff-file-item.selected {
-  background: var(--bg-active);
-}
-
-.diff-file-status {
-  font-family: monospace;
-  font-size: 11px;
-  font-weight: 600;
-  width: 14px;
-  text-align: center;
-  flex-shrink: 0;
-}
-
-.diff-file-path {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-primary);
-}
-
-.diff-file-label {
-  font-size: 10px;
-  flex-shrink: 0;
-}
-
-.diff-editor-area {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-/* ── Git Panel ───────────────────────────────────────────────────────── */
-.git-panel {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.git-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 8px;
+  padding: 5px 8px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
-.git-branch-name {
+.scm-branch-selector {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+  flex: 1;
+  min-width: 0;
+}
+
+.scm-branch-selector:hover {
+  border-color: var(--accent);
+}
+
+.scm-branch-icon {
+  color: var(--magenta);
+  font-size: 14px;
+}
+
+.scm-branch-label {
   font-family: monospace;
   font-size: 12px;
   color: var(--magenta);
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.git-tabs {
+.scm-branch-arrow {
+  color: var(--text-muted);
+  font-size: 10px;
+  margin-left: auto;
+}
+
+.scm-icon-btn {
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.scm-icon-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.scm-icon-btn.small {
+  padding: 1px 5px;
+  font-size: 12px;
+}
+
+.scm-icon-btn.tiny {
+  padding: 0 3px;
+  font-size: 10px;
+  border: none;
+  opacity: 0;
+}
+
+.scm-branch-option:hover .scm-icon-btn.tiny {
+  opacity: 1;
+}
+
+/* Branch dropdown */
+.scm-branch-dropdown {
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+  max-height: 200px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.scm-branch-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.scm-branch-dropdown-divider {
+  border-top: 1px solid var(--border);
+  margin: 2px 0;
+}
+
+.scm-branch-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: monospace;
+  color: var(--text-secondary);
+  transition: background 0.1s;
+}
+
+.scm-branch-option:hover {
+  background: var(--bg-hover);
+}
+
+.scm-branch-option.current {
+  color: var(--green);
+  font-weight: 600;
+  cursor: default;
+}
+
+.scm-branch-option.remote {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.scm-branch-option-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scm-new-branch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+}
+
+.scm-input {
+  flex: 1;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: monospace;
+}
+
+.scm-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* View tabs */
+.scm-tabs {
   display: flex;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
-.git-tab-btn {
+.scm-tab {
   flex: 1;
   padding: 5px 4px;
   border: none;
@@ -919,185 +942,136 @@ body,
   border-bottom: 2px solid transparent;
 }
 
-.git-tab-btn:hover {
+.scm-tab:hover {
   color: var(--text-secondary);
   background: var(--bg-hover);
 }
 
-.git-tab-btn.active {
+.scm-tab.active {
   color: var(--accent);
   border-bottom-color: var(--accent);
 }
 
-.git-body {
+/* Body: split between file list and diff */
+.scm-body {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
+  overflow: hidden;
+}
+
+.scm-list-area {
+  flex-shrink: 0;
+  max-height: 50%;
   overflow-y: auto;
 }
 
-/* Git Log */
-.git-log-list {
-  padding: 4px 0;
-}
-
-.git-commit-item {
-  padding: 6px 8px;
+/* Sections */
+.scm-section {
   border-bottom: 1px solid var(--border);
-  cursor: default;
 }
 
-.git-commit-item:hover {
-  background: var(--bg-hover);
-}
-
-.git-commit-top {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 2px;
-}
-
-.git-commit-hash {
-  font-family: monospace;
-  font-size: 11px;
-  color: var(--cyan);
-}
-
-.git-commit-refs {
-  font-size: 10px;
-  color: var(--yellow);
-  padding: 0 4px;
-  border: 1px solid var(--yellow);
-  border-radius: 3px;
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.git-commit-date {
-  font-size: 10px;
-  color: var(--text-muted);
-  margin-left: auto;
-}
-
-.git-commit-msg {
-  font-size: 12px;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.git-commit-author {
-  font-size: 10px;
-  color: var(--text-muted);
-}
-
-/* Git Branches */
-.git-branch-list {
-  padding: 4px 0;
-}
-
-.git-branch-section-title {
-  padding: 6px 8px 2px;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.git-branch-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px 4px 12px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  font-family: monospace;
-}
-
-.git-branch-item.current {
-  color: var(--green);
-  font-weight: 600;
-}
-
-.git-branch-item.remote {
-  color: var(--text-muted);
-}
-
-.git-branch-indicator {
-  color: var(--green);
-}
-
-/* Git Actions */
-.git-actions {
-  padding: 4px 0;
-}
-
-.git-section {
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 4px;
-  margin-bottom: 4px;
-}
-
-.git-section-header {
+.scm-section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 8px;
+  padding: 5px 8px;
   font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
+  background: var(--bg-surface);
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
-.git-stage-all-btn {
-  padding: 2px 6px;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  background: transparent;
-  color: var(--green);
-  cursor: pointer;
-  font-size: 10px;
-  transition: all 0.15s;
-}
-
-.git-stage-all-btn:hover {
-  background: var(--bg-hover);
-}
-
-.git-action-file {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 8px;
+.scm-empty {
+  padding: 12px;
+  text-align: center;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
-.git-file-action {
+/* File rows with colored indicator bar */
+.scm-file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 3px 0;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.1s;
+}
+
+.scm-file:hover {
+  background: var(--bg-hover);
+}
+
+.scm-file.selected {
+  background: var(--bg-active);
+}
+
+.scm-file-indicator {
+  width: 3px;
+  align-self: stretch;
+  flex-shrink: 0;
+  border-radius: 0 2px 2px 0;
+}
+
+.scm-file-status {
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 700;
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.scm-file-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.scm-file-action {
   padding: 0 4px;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: 3px;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12px;
   font-family: monospace;
   font-weight: 600;
   line-height: 1.2;
   transition: all 0.15s;
   margin-left: auto;
+  opacity: 0;
+  flex-shrink: 0;
 }
 
-.git-file-action:hover {
+.scm-file:hover .scm-file-action {
+  opacity: 1;
+}
+
+.scm-file-action:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
+  border-color: var(--border);
 }
 
-.git-commit-input {
-  width: calc(100% - 16px);
-  margin: 4px 8px;
+/* Commit area */
+.scm-commit-area {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.scm-commit-input {
+  width: 100%;
   padding: 6px 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -1105,27 +1079,49 @@ body,
   color: var(--text-primary);
   font-size: 12px;
   font-family: inherit;
-  resize: vertical;
-  min-height: 48px;
+  resize: none;
+  min-height: 36px;
 }
 
-.git-commit-input:focus {
+.scm-commit-input:focus {
   outline: none;
   border-color: var(--accent);
 }
 
-.git-commit-input::placeholder {
+.scm-commit-input::placeholder {
   color: var(--text-muted);
 }
 
-.git-action-buttons {
+.scm-commit-actions {
   display: flex;
   gap: 4px;
-  padding: 4px 8px;
+  margin-top: 4px;
 }
 
-.git-action-btn {
-  padding: 4px 12px;
+.scm-commit-btn {
+  flex: 1;
+  padding: 5px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--bg-primary);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.scm-commit-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.scm-commit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.scm-push-btn {
+  padding: 5px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: transparent;
@@ -1135,33 +1131,144 @@ body,
   transition: all 0.15s;
 }
 
-.git-action-btn:hover:not(:disabled) {
+.scm-push-btn:hover:not(:disabled) {
   color: var(--text-primary);
   background: var(--bg-hover);
-  border-color: var(--text-muted);
 }
 
-.git-action-btn:disabled {
+.scm-push-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.git-output {
-  padding: 4px 8px;
+/* History */
+.scm-history {
+  padding: 0;
 }
 
-.git-output pre {
+.scm-commit {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.scm-commit:hover {
+  background: var(--bg-hover);
+}
+
+.scm-commit.expanded {
+  background: var(--bg-surface);
+}
+
+.scm-commit-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 1px;
+}
+
+.scm-commit-hash {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--cyan);
+}
+
+.scm-commit-refs {
+  font-size: 9px;
+  color: var(--yellow);
+  padding: 0 4px;
+  border: 1px solid var(--yellow);
+  border-radius: 3px;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scm-commit-msg {
+  font-size: 12px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scm-commit-meta {
+  display: flex;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.scm-commit-files {
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Diff area */
+.scm-diff-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--border);
+}
+
+.scm-diff-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 8px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.scm-diff-file-name {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scm-diff-editor {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Action output */
+.scm-output {
+  padding: 4px 8px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.scm-output pre {
   font-family: monospace;
   font-size: 11px;
   color: var(--text-muted);
   white-space: pre-wrap;
   word-break: break-all;
   background: var(--bg-primary);
-  padding: 6px 8px;
+  padding: 4px 8px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  max-height: 100px;
+  max-height: 60px;
   overflow-y: auto;
+}
+
+/* Branches in scm */
+.scm-branches {
+  padding: 0;
+}
+
+.scm-file.current-branch {
+  background: var(--bg-surface);
 }
 
 /* ── Browser Panel ───────────────────────────────────────────────────── */

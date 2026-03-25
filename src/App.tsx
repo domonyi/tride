@@ -6,7 +6,7 @@ import { TerminalTabs } from "./components/TerminalTabs";
 import { TerminalGrid } from "./components/TerminalGrid";
 import { Sidebar } from "./components/Sidebar";
 import { ActionBar } from "./components/ActionBar";
-import { saveSession, loadSession } from "./state/session";
+import { saveSession, loadSession, respawnTerminals } from "./state/session";
 import type { SidebarMode } from "./types";
 import "./styles.css";
 
@@ -23,11 +23,16 @@ function AppContent() {
     loadSession().then((session) => {
       if (session) {
         dispatch({ type: "RESTORE_SESSION", state: session });
-        // Restore sidebar width if saved
-        if (session.sidebarWidth) {
-          const sidebar = document.querySelector(".sidebar") as HTMLElement;
-          if (sidebar) sidebar.style.width = `${session.sidebarWidth}px`;
-        }
+
+        // Re-spawn PTYs for restored terminals
+        respawnTerminals(session.projects, (projectId, terminalId, ptyId) => {
+          dispatch({
+            type: "UPDATE_TERMINAL",
+            projectId,
+            terminalId,
+            updates: { ptyId },
+          });
+        });
       }
     });
   }, [dispatch]);
@@ -38,9 +43,7 @@ function AppContent() {
     if (!loadedRef.current) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
-      const sidebar = document.querySelector(".sidebar") as HTMLElement;
-      const width = sidebar?.offsetWidth;
-      saveSession(state, width);
+      saveSession(state);
     }, 1000);
   }, [state]);
 
@@ -49,9 +52,8 @@ function AppContent() {
     const handler = (e: KeyboardEvent) => {
       const modeMap: Record<string, SidebarMode> = {
         F1: "code",
-        F2: "diff",
-        F3: "git",
-        F4: "browser",
+        F2: "scm",
+        F3: "browser",
       };
       if (modeMap[e.key]) {
         e.preventDefault();
