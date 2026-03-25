@@ -66,6 +66,15 @@ fn write_file(path: String, content: String) -> Result<(), String> {
     fs::write_file(&path, &content)
 }
 
+// ── Utility Commands ────────────────────────────────────────────────────────
+
+#[tauri::command]
+fn get_home_dir() -> Result<String, String> {
+    dirs::home_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .ok_or_else(|| "Could not determine home directory".to_string())
+}
+
 // ── Theia Server Command ────────────────────────────────────────────────────
 
 #[tauri::command]
@@ -102,15 +111,34 @@ fn start_theia(port: u16, root_dir: String) -> Result<(), String> {
         }
     };
 
+    let home = std::env::var("USERPROFILE").unwrap_or_default();
+    let plugins_dir = format!("local-dir:{}/.theia/plugins", home.replace('\\', "/"));
+    let deployed_dir = format!("local-dir:{}/.theia/deployedPlugins", home.replace('\\', "/"));
+
     std::thread::spawn(move || {
         let mut cmd = std::process::Command::new(&node_path);
         cmd.arg(theia_main.to_string_lossy().to_string())
             .arg(format!("--port={}", port))
             .arg("--hostname=localhost")
+            .arg(format!("--plugins={}", plugins_dir))
             .arg(&root_dir)
-            .current_dir("C:\\DEV\\AiTerminal\\theia-ide")
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null());
+            .env("THEIA_DEFAULT_PLUGINS", &plugins_dir)
+            .env("THEIA_PLUGINS", &deployed_dir)
+            .current_dir("C:\\DEV\\AiTerminal\\theia-ide");
+
+        // Hide the console window on Windows
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        }
+
+        // Log output to file instead of console
+        let log_path = format!("{}\\theia-server.log", std::env::var("USERPROFILE").unwrap_or_default());
+        if let Ok(log_file) = std::fs::File::create(&log_path) {
+            let err_file = log_file.try_clone().unwrap_or_else(|_| std::fs::File::create(&log_path).unwrap());
+            cmd.stdout(log_file).stderr(err_file);
+        }
 
         match cmd.spawn() {
             Ok(_child) => {
@@ -141,6 +169,7 @@ pub fn run() {
             resize_terminal,
             kill_terminal,
             list_terminals,
+            get_home_dir,
             start_theia,
             list_dir,
             read_file,

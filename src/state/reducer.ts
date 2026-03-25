@@ -81,6 +81,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "TOGGLE_SIDEBAR":
       return { ...state, sidebarVisible: !state.sidebarVisible };
 
+    case "RESTORE_SESSION":
+      return { ...state, ...action.state };
+
     default:
       return state;
   }

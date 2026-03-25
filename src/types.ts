@@ -42,4 +42,5 @@ export type AppAction =
   | { type: "UPDATE_TERMINAL"; projectId: string; terminalId: string; updates: Partial<Terminal> }
   | { type: "SET_GRID_LAYOUT"; layout: GridLayout }
   | { type: "SET_SIDEBAR_MODE"; mode: SidebarMode }
-  | { type: "TOGGLE_SIDEBAR" };
+  | { type: "TOGGLE_SIDEBAR" }
+  | { type: "RESTORE_SESSION"; state: Partial<AppState> };

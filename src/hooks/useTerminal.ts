@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { WebglAddon } from "@xterm/addon-webgl";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
@@ -57,6 +58,15 @@ export function useTerminal({ ptyId }: UseTerminalOptions) {
     const fitAddon = new FitAddon();
     xterm.loadAddon(fitAddon);
     xterm.open(containerRef.current);
+
+    // WebGL renderer for better performance and color support
+    try {
+      const webglAddon = new WebglAddon();
+      webglAddon.onContextLoss(() => webglAddon.dispose());
+      xterm.loadAddon(webglAddon);
+    } catch {
+      // WebGL not available, fall back to canvas
+    }
 
     requestAnimationFrame(() => {
       try {

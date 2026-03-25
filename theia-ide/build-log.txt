@@ -1,0 +1,329 @@
+Could not resolve optional peer dependency '@theia/electron'. Skipping...
+assets by status 24.5 MiB [1m[32m[cached][39m[22m 29 assets
+4265 modules
+  
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@theia/monaco-editor-core/esm/vs/base/common/worker/simpleWorker.js[39m[22m [1m[32m439:56-66[39m[22m
+[1mCritical dependency: the request of a dependency is an expression[39m[22m
+ @ ./node_modules/@theia/monaco-editor-core/esm/vs/editor/common/services/editorWorkerBootstrap.js 9:26-80
+ @ ./node_modules/@theia/monaco-editor-core/esm/vs/editor/editor.worker.js 21:13-66
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@theia/monaco-editor-core/esm/vs/editor/common/services/editorSimpleWorker.js[39m[22m [1m[32m420:53-63[39m[22m
+[1mCritical dependency: the request of a dependency is an expression[39m[22m
+ @ ./node_modules/@theia/monaco-editor-core/esm/vs/editor/common/services/editorWorkerBootstrap.js 10:32-66
+ @ ./node_modules/@theia/monaco-editor-core/esm/vs/editor/editor.worker.js 21:13-66
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@theia/textmate-grammars/node_modules/vscode-textmate/release/main.js[39m[22m [1m[32m23:15-27[39m[22m
+[1mCritical dependency: the request of a dependency is an expression[39m[22m
+ @ ./node_modules/@theia/textmate-grammars/node_modules/@theia/monaco/lib/browser/textmate/monaco-textmate-service.js 73:24-50
+ @ ./node_modules/@theia/textmate-grammars/node_modules/@theia/monaco/lib/browser/textmate/index.js 23:9-45
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/js.js 68:17-62
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/textmate-grammars-frontend-module.js 53:11-26
+ @ ./src-gen/frontend/index.js 116:30-111
+
+3 warnings have detailed information that is not shown.
+Use 'stats.errorDetails: true' resp. '--stats-error-details' to show it.
+
+[1m[31mERROR[39m[22m in [1m./node_modules/onigasm/node_modules/lru-cache/index.js[39m[22m [1m[32m8:11-26[39m[22m
+[1mModule [1m[31mnot found[39m[22m[1m: [1m[31mError[39m[22m[1m: Can't resolve 'util' in 'C:\DEV\AiTerminal\theia-ide\node_modules\onigasm\node_modules\lru-cache'
+
+[1m[31mBREAKING CHANGE[39m[22m[1m: webpack < 5 used to include polyfills for node.js core modules by default.
+This is no longer the case. Verify if you need this module and configure a polyfill for it.
+
+If you want to include a polyfill, you need to:
+	- add a fallback 'resolve.fallback: { "util": require.resolve("util/") }'
+	- install 'util'
+If you don't want to include a polyfill, you can use an empty module like this:
+	resolve.fallback: { "util": false }[39m[22m
+ @ ./node_modules/onigasm/lib/OnigScanner.js 3:17-37
+ @ ./node_modules/onigasm/lib/index.js 7:22-46
+ @ ./node_modules/@theia/textmate-grammars/node_modules/@theia/monaco/lib/browser/textmate/monaco-textmate-frontend-bindings.js 60:16-34
+ @ ./node_modules/@theia/textmate-grammars/node_modules/@theia/monaco/lib/browser/textmate/index.js 24:9-55
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/js.js 68:17-62
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/textmate-grammars-frontend-module.js 53:11-26
+ @ ./src-gen/frontend/index.js 116:30-111
+
+[1m[31mERROR[39m[22m in [1m./node_modules/monaco-languageclient/lib/connection.js[39m[22m [1m[32m7:15-65[39m[22m
+[1mModule [1m[31mnot found[39m[22m[1m: [1m[31mError[39m[22m[1m: Can't resolve 'vscode-languageserver-protocol/lib/main' in 'C:\DEV\AiTerminal\theia-ide\node_modules\monaco-languageclient\lib'[39m[22m
+ @ ./node_modules/monaco-languageclient/lib/index.js 12:9-32
+ @ ./node_modules/@theia/languages/lib/browser/language-client-factory.js 77:30-62
+ @ ./node_modules/@theia/languages/lib/browser/index.js 22:9-45
+ @ ./node_modules/@theia/textmate-grammars/node_modules/@theia/monaco/lib/browser/monaco-snippet-suggest-provider.js 100:16-55
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/ts.js 67:40-108
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/textmate-grammars-frontend-module.js 52:11-26
+ @ ./src-gen/frontend/index.js 116:30-111
+
+[1m[31mERROR[39m[22m in [1m./node_modules/monaco-languageclient/lib/connection.js[39m[22m [1m[32m8:11-65[39m[22m
+[1mModule [1m[31mnot found[39m[22m[1m: [1m[31mError[39m[22m[1m: Can't resolve 'vscode-languageserver-protocol/lib/utils/is' in 'C:\DEV\AiTerminal\theia-ide\node_modules\monaco-languageclient\lib'[39m[22m
+ @ ./node_modules/monaco-languageclient/lib/index.js 12:9-32
+ @ ./node_modules/@theia/languages/lib/browser/language-client-factory.js 77:30-62
+ @ ./node_modules/@theia/languages/lib/browser/index.js 22:9-45
+ @ ./node_modules/@theia/textmate-grammars/node_modules/@theia/monaco/lib/browser/monaco-snippet-suggest-provider.js 100:16-55
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/ts.js 67:40-108
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/textmate-grammars-frontend-module.js 52:11-26
+ @ ./src-gen/frontend/index.js 116:30-111
+
+[1m[31mERROR[39m[22m in [1m./node_modules/monaco-languageclient/lib/monaco-converter.js[39m[22m [1m[32m8:11-65[39m[22m
+[1mModule [1m[31mnot found[39m[22m[1m: [1m[31mError[39m[22m[1m: Can't resolve 'vscode-languageserver-protocol/lib/utils/is' in 'C:\DEV\AiTerminal\theia-ide\node_modules\monaco-languageclient\lib'[39m[22m
+ @ ./node_modules/monaco-languageclient/lib/index.js 19:9-38
+ @ ./node_modules/@theia/languages/lib/browser/language-client-factory.js 77:30-62
+ @ ./node_modules/@theia/languages/lib/browser/index.js 22:9-45
+ @ ./node_modules/@theia/textmate-grammars/node_modules/@theia/monaco/lib/browser/monaco-snippet-suggest-provider.js 100:16-55
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/ts.js 67:40-108
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/textmate-grammars-frontend-module.js 52:11-26
+ @ ./src-gen/frontend/index.js 116:30-111
+
+[1m[31mERROR[39m[22m in [1m./node_modules/monaco-languageclient/lib/services.js[39m[22m [1m[32m16:9-59[39m[22m
+[1mModule [1m[31mnot found[39m[22m[1m: [1m[31mError[39m[22m[1m: Can't resolve 'vscode-languageserver-protocol/lib/main' in 'C:\DEV\AiTerminal\theia-ide\node_modules\monaco-languageclient\lib'[39m[22m
+ @ ./node_modules/@theia/languages/lib/browser/window-impl.js 84:17-62
+ @ ./node_modules/@theia/languages/lib/browser/languages-frontend-module.js 33:20-44
+ @ ./node_modules/@theia/languages/lib/browser/index.js 25:9-47
+ @ ./node_modules/@theia/textmate-grammars/node_modules/@theia/monaco/lib/browser/monaco-snippet-suggest-provider.js 100:16-55
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/ts.js 67:40-108
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/textmate-grammars-frontend-module.js 52:11-26
+ @ ./src-gen/frontend/index.js 116:30-111
+
+[1m[31mERROR[39m[22m in [1m./node_modules/vscode-languageclient/lib/client.js[39m[22m [1m[32m10:17-34[39m[22m
+[1mModule [1m[31mnot found[39m[22m[1m: [1m[31mError[39m[22m[1m: Can't resolve 'vscode' in 'C:\DEV\AiTerminal\theia-ide\node_modules\vscode-languageclient\lib'[39m[22m
+ @ ./node_modules/monaco-languageclient/lib/monaco-language-client.js 10:17-60 18:9-52
+ @ ./node_modules/monaco-languageclient/lib/index.js 13:9-44
+ @ ./node_modules/@theia/languages/lib/browser/language-client-factory.js 77:30-62
+ @ ./node_modules/@theia/languages/lib/browser/index.js 22:9-45
+ @ ./node_modules/@theia/textmate-grammars/node_modules/@theia/monaco/lib/browser/monaco-snippet-suggest-provider.js 100:16-55
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/ts.js 67:40-108
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/textmate-grammars-frontend-module.js 52:11-26
+ @ ./src-gen/frontend/index.js 116:30-111
+
+[1m[31mERROR[39m[22m in [1m./node_modules/vscode-languageclient/lib/codeConverter.js[39m[22m [1m[32m7:13-30[39m[22m
+[1mModule [1m[31mnot found[39m[22m[1m: [1m[31mError[39m[22m[1m: Can't resolve 'vscode' in 'C:\DEV\AiTerminal\theia-ide\node_modules\vscode-languageclient\lib'[39m[22m
+ @ ./node_modules/vscode-languageclient/lib/client.js 12:12-38
+ @ ./node_modules/monaco-languageclient/lib/monaco-language-client.js 10:17-60 18:9-52
+ @ ./node_modules/monaco-languageclient/lib/index.js 13:9-44
+ @ ./node_modules/@theia/languages/lib/browser/language-client-factory.js 77:30-62
+ @ ./node_modules/@theia/languages/lib/browser/index.js 22:9-45
+ @ ./node_modules/@theia/textmate-grammars/node_modules/@theia/monaco/lib/browser/monaco-snippet-suggest-provider.js 100:16-55
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/ts.js 67:40-108
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/textmate-grammars-frontend-module.js 52:11-26
+ @ ./src-gen/frontend/index.js 116:30-111
+
+[1m[31mERROR[39m[22m in [1m./node_modules/vscode-languageclient/lib/colorProvider.js[39m[22m [1m[32m7:17-34[39m[22m
+[1mModule [1m[31mnot found[39m[22m[1m: [1m[31mError[39m[22m[1m: Can't resolve 'vscode' in 'C:\DEV\AiTerminal\theia-ide\node_modules\vscode-languageclient\lib'[39m[22m
+ @ ./node_modules/monaco-languageclient/lib/monaco-language-client.js 14:24-74
+ @ ./node_modules/monaco-languageclient/lib/index.js 13:9-44
+ @ ./node_modules/@theia/languages/lib/browser/language-client-factory.js 77:30-62
+ @ ./node_modules/@theia/languages/lib/browser/index.js 22:9-45
+ @ ./node_modules/@theia/textmate-grammars/node_modules/@theia/monaco/lib/browser/monaco-snippet-suggest-provider.js 100:16-55
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/ts.js 67:40-108
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/textmate-grammars-frontend-module.js 52:11-26
+ @ ./src-gen/frontend/index.js 116:30-111
+
+[1m[31mERROR[39m[22m in [1m./node_modules/vscode-languageclient/lib/configuration.js[39m[22m [1m[32m7:17-34[39m[22m
+[1mModule [1m[31mnot found[39m[22m[1m: [1m[31mError[39m[22m[1m: Can't resolve 'vscode' in 'C:\DEV\AiTerminal\theia-ide\node_modules\vscode-languageclient\lib'[39m[22m
+ @ ./node_modules/monaco-languageclient/lib/monaco-language-client.js 12:24-74
+ @ ./node_modules/monaco-languageclient/lib/index.js 13:9-44
+ @ ./node_modules/@theia/languages/lib/browser/language-client-factory.js 77:30-62
+ @ ./node_modules/@theia/languages/lib/browser/index.js 22:9-45
+ @ ./node_modules/@theia/textmate-grammars/node_modules/@theia/monaco/lib/browser/monaco-snippet-suggest-provider.js 100:16-55
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/ts.js 67:40-108
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/textmate-grammars-frontend-module.js 52:11-26
+ @ ./src-gen/frontend/index.js 116:30-111
+
+[1m[31mERROR[39m[22m in [1m./node_modules/vscode-languageclient/lib/declaration.js[39m[22m [1m[32m7:17-34[39m[22m
+[1mModule [1m[31mnot found[39m[22m[1m: [1m[31mError[39m[22m[1m: Can't resolve 'vscode' in 'C:\DEV\AiTerminal\theia-ide\node_modules\vscode-languageclient\lib'[39m[22m
+ @ ./node_modules/monaco-languageclient/lib/monaco-language-client.js 17:22-70
+ @ ./node_modules/monaco-languageclient/lib/index.js 13:9-44
+ @ ./node_modules/@theia/languages/lib/browser/language-client-factory.js 77:30-62
+ @ ./node_modules/@theia/languages/lib/browser/index.js 22:9-45
+ @ ./node_modules/@theia/textmate-grammars/node_modules/@theia/monaco/lib/browser/monaco-snippet-suggest-provider.js 100:16-55
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/ts.js 67:40-108
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/textmate-grammars-frontend-module.js 52:11-26
+ @ ./src-gen/frontend/index.js 116:30-111
+
+[1m[31mERROR[39m[22m in [1m./node_modules/vscode-languageclient/lib/foldingRange.js[39m[22m [1m[32m7:17-34[39m[22m
+[1mModule [1m[31mnot found[39m[22m[1m: [1m[31mError[39m[22m[1m: Can't resolve 'vscode' in 'C:\DEV\AiTerminal\theia-ide\node_modules\vscode-languageclient\lib'[39m[22m
+ @ ./node_modules/monaco-languageclient/lib/monaco-language-client.js 16:23-72
+ @ ./node_modules/monaco-languageclient/lib/index.js 13:9-44
+ @ ./node_modules/@theia/languages/lib/browser/language-client-factory.js 77:30-62
+ @ ./node_modules/@theia/languages/lib/browser/index.js 22:9-45
+ @ ./node_modules/@theia/textmate-grammars/node_modules/@theia/monaco/lib/browser/monaco-snippet-suggest-provider.js 100:16-55
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/ts.js 67:40-108
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/textmate-grammars-frontend-module.js 52:11-26
+ @ ./src-gen/frontend/index.js 116:30-111
+
+[1m[31mERROR[39m[22m in [1m./node_modules/vscode-languageclient/lib/implementation.js[39m[22m [1m[32m7:17-34[39m[22m
+[1mModule [1m[31mnot found[39m[22m[1m: [1m[31mError[39m[22m[1m: Can't resolve 'vscode' in 'C:\DEV\AiTerminal\theia-ide\node_modules\vscode-languageclient\lib'[39m[22m
+ @ ./node_modules/monaco-languageclient/lib/monaco-language-client.js 13:25-76
+ @ ./node_modules/monaco-languageclient/lib/index.js 13:9-44
+ @ ./node_modules/@theia/languages/lib/browser/language-client-factory.js 77:30-62
+ @ ./node_modules/@theia/languages/lib/browser/index.js 22:9-45
+ @ ./node_modules/@theia/textmate-grammars/node_modules/@theia/monaco/lib/browser/monaco-snippet-suggest-provider.js 100:16-55
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/ts.js 67:40-108
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/textmate-grammars-frontend-module.js 52:11-26
+ @ ./src-gen/frontend/index.js 116:30-111
+
+[1m[31mERROR[39m[22m in [1m./node_modules/vscode-languageclient/lib/progressPart.js[39m[22m [1m[32m15:17-34[39m[22m
+[1mModule [1m[31mnot found[39m[22m[1m: [1m[31mError[39m[22m[1m: Can't resolve 'vscode' in 'C:\DEV\AiTerminal\theia-ide\node_modules\vscode-languageclient\lib'[39m[22m
+ @ ./node_modules/vscode-languageclient/lib/client.js 17:23-48
+ @ ./node_modules/monaco-languageclient/lib/monaco-language-client.js 10:17-60 18:9-52
+ @ ./node_modules/monaco-languageclient/lib/index.js 13:9-44
+ @ ./node_modules/@theia/languages/lib/browser/language-client-factory.js 77:30-62
+ @ ./node_modules/@theia/languages/lib/browser/index.js 22:9-45
+ @ ./node_modules/@theia/textmate-grammars/node_modules/@theia/monaco/lib/browser/monaco-snippet-suggest-provider.js 100:16-55
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/ts.js 67:40-108
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/textmate-grammars-frontend-module.js 52:11-26
+ @ ./src-gen/frontend/index.js 116:30-111
+
+[1m[31mERROR[39m[22m in [1m./node_modules/vscode-languageclient/lib/protocolCodeLens.js[39m[22m [1m[32m7:13-30[39m[22m
+[1mModule [1m[31mnot found[39m[22m[1m: [1m[31mError[39m[22m[1m: Can't resolve 'vscode' in 'C:\DEV\AiTerminal\theia-ide\node_modules\vscode-languageclient\lib'[39m[22m
+ @ ./node_modules/vscode-languageclient/lib/protocolConverter.js 11:27-56
+ @ ./node_modules/vscode-languageclient/lib/client.js 13:12-42
+ @ ./node_modules/monaco-languageclient/lib/monaco-language-client.js 10:17-60 18:9-52
+ @ ./node_modules/monaco-languageclient/lib/index.js 13:9-44
+ @ ./node_modules/@theia/languages/lib/browser/language-client-factory.js 77:30-62
+ @ ./node_modules/@theia/languages/lib/browser/index.js 22:9-45
+ @ ./node_modules/@theia/textmate-grammars/node_modules/@theia/monaco/lib/browser/monaco-snippet-suggest-provider.js 100:16-55
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/ts.js 67:40-108
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/textmate-grammars-frontend-module.js 52:11-26
+ @ ./src-gen/frontend/index.js 116:30-111
+
+[1m[31mERROR[39m[22m in [1m./node_modules/vscode-languageclient/lib/protocolCompletionItem.js[39m[22m [1m[32m7:13-30[39m[22m
+[1mModule [1m[31mnot found[39m[22m[1m: [1m[31mError[39m[22m[1m: Can't resolve 'vscode' in 'C:\DEV\AiTerminal\theia-ide\node_modules\vscode-languageclient\lib'[39m[22m
+ @ ./node_modules/vscode-languageclient/lib/protocolConverter.js 10:33-68
+ @ ./node_modules/vscode-languageclient/lib/client.js 13:12-42
+ @ ./node_modules/monaco-languageclient/lib/monaco-language-client.js 10:17-60 18:9-52
+ @ ./node_modules/monaco-languageclient/lib/index.js 13:9-44
+ @ ./node_modules/@theia/languages/lib/browser/language-client-factory.js 77:30-62
+ @ ./node_modules/@theia/languages/lib/browser/index.js 22:9-45
+ @ ./node_modules/@theia/textmate-grammars/node_modules/@theia/monaco/lib/browser/monaco-snippet-suggest-provider.js 100:16-55
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/ts.js 67:40-108
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/textmate-grammars-frontend-module.js 52:11-26
+ @ ./src-gen/frontend/index.js 116:30-111
+
+[1m[31mERROR[39m[22m in [1m./node_modules/vscode-languageclient/lib/protocolConverter.js[39m[22m [1m[32m7:13-30[39m[22m
+[1mModule [1m[31mnot found[39m[22m[1m: [1m[31mError[39m[22m[1m: Can't resolve 'vscode' in 'C:\DEV\AiTerminal\theia-ide\node_modules\vscode-languageclient\lib'[39m[22m
+ @ ./node_modules/vscode-languageclient/lib/client.js 13:12-42
+ @ ./node_modules/monaco-languageclient/lib/monaco-language-client.js 10:17-60 18:9-52
+ @ ./node_modules/monaco-languageclient/lib/index.js 13:9-44
+ @ ./node_modules/@theia/languages/lib/browser/language-client-factory.js 77:30-62
+ @ ./node_modules/@theia/languages/lib/browser/index.js 22:9-45
+ @ ./node_modules/@theia/textmate-grammars/node_modules/@theia/monaco/lib/browser/monaco-snippet-suggest-provider.js 100:16-55
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/ts.js 67:40-108
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/textmate-grammars-frontend-module.js 52:11-26
+ @ ./src-gen/frontend/index.js 116:30-111
+
+[1m[31mERROR[39m[22m in [1m./node_modules/vscode-languageclient/lib/protocolDocumentLink.js[39m[22m [1m[32m7:13-30[39m[22m
+[1mModule [1m[31mnot found[39m[22m[1m: [1m[31mError[39m[22m[1m: Can't resolve 'vscode' in 'C:\DEV\AiTerminal\theia-ide\node_modules\vscode-languageclient\lib'[39m[22m
+ @ ./node_modules/vscode-languageclient/lib/protocolConverter.js 12:31-64
+ @ ./node_modules/vscode-languageclient/lib/client.js 13:12-42
+ @ ./node_modules/monaco-languageclient/lib/monaco-language-client.js 10:17-60 18:9-52
+ @ ./node_modules/monaco-languageclient/lib/index.js 13:9-44
+ @ ./node_modules/@theia/languages/lib/browser/language-client-factory.js 77:30-62
+ @ ./node_modules/@theia/languages/lib/browser/index.js 22:9-45
+ @ ./node_modules/@theia/textmate-grammars/node_modules/@theia/monaco/lib/browser/monaco-snippet-suggest-provider.js 100:16-55
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/ts.js 67:40-108
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/textmate-grammars-frontend-module.js 52:11-26
+ @ ./src-gen/frontend/index.js 116:30-111
+
+[1m[31mERROR[39m[22m in [1m./node_modules/vscode-languageclient/lib/typeDefinition.js[39m[22m [1m[32m7:17-34[39m[22m
+[1mModule [1m[31mnot found[39m[22m[1m: [1m[31mError[39m[22m[1m: Can't resolve 'vscode' in 'C:\DEV\AiTerminal\theia-ide\node_modules\vscode-languageclient\lib'[39m[22m
+ @ ./node_modules/monaco-languageclient/lib/monaco-language-client.js 11:25-76
+ @ ./node_modules/monaco-languageclient/lib/index.js 13:9-44
+ @ ./node_modules/@theia/languages/lib/browser/language-client-factory.js 77:30-62
+ @ ./node_modules/@theia/languages/lib/browser/index.js 22:9-45
+ @ ./node_modules/@theia/textmate-grammars/node_modules/@theia/monaco/lib/browser/monaco-snippet-suggest-provider.js 100:16-55
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/ts.js 67:40-108
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/textmate-grammars-frontend-module.js 52:11-26
+ @ ./src-gen/frontend/index.js 116:30-111
+
+[1m[31mERROR[39m[22m in [1m./node_modules/vscode-languageclient/lib/workspaceFolders.js[39m[22m [1m[32m8:17-34[39m[22m
+[1mModule [1m[31mnot found[39m[22m[1m: [1m[31mError[39m[22m[1m: Can't resolve 'vscode' in 'C:\DEV\AiTerminal\theia-ide\node_modules\vscode-languageclient\lib'[39m[22m
+ @ ./node_modules/monaco-languageclient/lib/monaco-language-client.js 15:27-80
+ @ ./node_modules/monaco-languageclient/lib/index.js 13:9-44
+ @ ./node_modules/@theia/languages/lib/browser/language-client-factory.js 77:30-62
+ @ ./node_modules/@theia/languages/lib/browser/index.js 22:9-45
+ @ ./node_modules/@theia/textmate-grammars/node_modules/@theia/monaco/lib/browser/monaco-snippet-suggest-provider.js 100:16-55
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/ts.js 67:40-108
+ @ ./node_modules/@theia/textmate-grammars/lib/browser/textmate-grammars-frontend-module.js 52:11-26
+ @ ./src-gen/frontend/index.js 116:30-111
+
+[1m[33m19 errors have detailed information that is not shown.
+Use 'stats.errorDetails: true' resp. '--stats-error-details' to show it.[39m[22m
+
+webpack 5.105.4 compiled with [1m[31m19 errors[39m[22m and [1m[33m3 warnings[39m[22m in 87215 ms
+
+assets by status 1.96 MiB [1m[32m[cached][39m[22m 14 assets
+assets by status 10.6 MiB [1m[33m[compared for emit][39m[22m
+  asset [1m[33msecondary-window.js[39m[22m [1m[33m10.1 MiB[39m[22m [1m[33m[compared for emit][39m[22m [1m[32m[minimized][39m[22m [1m[33m[big][39m[22m (name: secondary-window) 2 related assets
+  asset [1m[33msecondary-window.css[39m[22m [1m[33m485 KiB[39m[22m [1m[33m[compared for emit][39m[22m [1m[33m[big][39m[22m (name: secondary-window) 1 related asset
+Entrypoint [1msecondary-window[39m[22m [1m[33m[big][39m[22m 10.6 MiB (31.2 MiB) = [1m[32msecondary-window.css[39m[22m 485 KiB [1m[32msecondary-window.js[39m[22m 10.1 MiB 16 auxiliary assets
+2858 modules
+  
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@theia/monaco-editor-core/esm/vs/base/common/worker/simpleWorker.js[39m[22m [1m[32m439:56-66[39m[22m
+[1mCritical dependency: the request of a dependency is an expression[39m[22m
+ @ ./node_modules/@theia/monaco-editor-core/esm/vs/editor/browser/services/editorWorkerService.js 19:26-80
+ @ ./node_modules/@theia/monaco-editor-core/esm/vs/editor/standalone/browser/standaloneServices.js 72:33-89
+ @ ./node_modules/@theia/monaco/lib/browser/monaco-frontend-module.js 68:29-117
+ @ ./src-gen/frontend/secondary-index.js 11:19-86
+
+[1m[33mWARNING[39m[22m in [1m./node_modules/@theia/monaco-editor-core/esm/vs/editor/common/services/editorSimpleWorker.js[39m[22m [1m[32m420:53-63[39m[22m
+[1mCritical dependency: the request of a dependency is an expression[39m[22m
+ @ ./node_modules/@theia/monaco-editor-core/esm/vs/editor/browser/services/editorWorkerService.js 23:32-86
+ @ ./node_modules/@theia/monaco-editor-core/esm/vs/editor/standalone/browser/standaloneServices.js 72:33-89
+ @ ./node_modules/@theia/monaco/lib/browser/monaco-frontend-module.js 68:29-117
+ @ ./src-gen/frontend/secondary-index.js 11:19-86
+
+[1m[33mWARNING[39m[22m in [1masset size limit: The following asset(s) exceed the recommended size limit (244 KiB).
+This can impact web performance.
+Assets: 
+  c1e38fd9e0e74ba58f7a.svg?v=4.7.0 (434 KiB)
+  secondary-window.css (485 KiB)
+  secondary-window.js (10.1 MiB)
+  55a4dd893aa466108ee8.wasm (462 KiB)[39m[22m
+
+[1m[33mWARNING[39m[22m in [1mentrypoint size limit: The following entrypoint(s) combined asset size exceeds the recommended limit (244 KiB). This can impact web performance.
+Entrypoints:
+  secondary-window (10.6 MiB)
+      secondary-window.css
+      secondary-window.js
+[39m[22m
+
+[1m[33mWARNING[39m[22m in [1mwebpack performance recommendations: 
+You can limit the size of your bundles by using import() or require.ensure to lazy load some parts of your application.
+For more info visit https://webpack.js.org/guides/code-splitting/[39m[22m
+
+2 warnings have detailed information that is not shown.
+Use 'stats.errorDetails: true' resp. '--stats-error-details' to show it.
+
+webpack 5.105.4 compiled with [1m[33m5 warnings[39m[22m in 50611 ms
+
+assets by path [1m[32m*.js[39m[22m 8.06 MiB
+  assets by chunk 8.03 MiB (id hint: vendors)
+    asset [1m[32m582.js[39m[22m 3.9 MiB [1m[33m[compared for emit][39m[22m [1m[32m[minimized][39m[22m (id hint: vendors) 1 related asset
+    asset [1m[32m640.js[39m[22m 2.12 MiB [1m[33m[compared for emit][39m[22m [1m[32m[minimized][39m[22m (id hint: vendors) 1 related asset
+    + 5 assets
+  + 6 assets
+assets by path [1m[32mnative/*.node[39m[22m 2.09 MiB
+  asset [1m[32mnative/keytar.node[39m[22m 691 KiB [1m[33m[compared for emit][39m[22m (auxiliary id hint: vendors)
+  asset [1m[32mnative/watcher.node[39m[22m 511 KiB [1m[33m[compared for emit][39m[22m (auxiliary id hint: vendors)
+  asset [1m[32mnative/conpty.node[39m[22m 304 KiB [1m[33m[compared for emit][39m[22m (auxiliary id hint: vendors)
+  asset [1m[32mnative/pty.node[39m[22m 302 KiB [1m[33m[compared for emit][39m[22m (auxiliary id hint: vendors)
+  asset [1m[32mnative/drivelist.node[39m[22m 193 KiB [1m[33m[compared for emit][39m[22m (auxiliary id hint: vendors)
+  asset [1m[32mnative/crypt32.node[39m[22m 141 KiB [1m[33m[compared for emit][39m[22m (auxiliary id hint: vendors)
+asset [1m[32mworker/conoutSocketWorker.js[39m[22m 681 bytes [1m[33m[compared for emit][39m[22m [1m[32m[minimized][39m[22m (name: worker/conoutSocketWorker)
+runtime modules 22.8 KiB 61 modules
+orphan modules 148 KiB [1m[33m[orphan][39m[22m 34 modules
+cacheable modules 13.7 MiB
+  javascript modules 10.5 MiB
+    modules by path [1m./node_modules/[39m[22m 10.5 MiB 1918 modules
+    modules by path [1m./src-gen/backend/*.js[39m[22m 7.77 KiB 2 modules
+    modules by path [1m./lib/backend/native-webpack-plugin/*.js[39m[22m 382 bytes 2 modules
+  json modules 3.22 MiB 43 modules
++ 49 modules
+webpack 5.105.4 compiled [1m[32msuccessfully[39m[22m in 23516 ms
+
+Error: webpack exited with an unexpected code: 1.
+    at ChildProcess.<anonymous> (C:\DEV\AiTerminal\theia-ide\node_modules\@theia\application-manager\lib\application-process.js:86:28)
+    at ChildProcess.emit (node:events:524:28)
+    at maybeClose (node:internal/child_process:1104:16)
+    at ChildProcess._handle.onexit (node:internal/child_process:304:5)

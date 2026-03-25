@@ -66,40 +66,32 @@ export function Sidebar() {
           ))}
         </div>
         <div className="sidebar-content">
-          <SidebarContent mode={state.sidebarMode} />
+          <div className="sidebar-panel" style={{ display: state.sidebarMode === "code" ? "flex" : "none" }}>
+            <CodeEditor />
+          </div>
+          <div className="sidebar-panel" style={{ display: state.sidebarMode === "diff" ? "flex" : "none" }}>
+            <div className="sidebar-placeholder">
+              <div className="placeholder-icon">+/-</div>
+              <p>Diff Viewer</p>
+              <p className="placeholder-sub">Syntax-highlighted diff of focused terminal's worktree</p>
+            </div>
+          </div>
+          <div className="sidebar-panel" style={{ display: state.sidebarMode === "git" ? "flex" : "none" }}>
+            <div className="sidebar-placeholder">
+              <div className="placeholder-icon">*</div>
+              <p>Git Graph</p>
+              <p className="placeholder-sub">Branch visualization + commit history</p>
+            </div>
+          </div>
+          <div className="sidebar-panel" style={{ display: state.sidebarMode === "browser" ? "flex" : "none" }}>
+            <div className="sidebar-placeholder">
+              <div className="placeholder-icon">W</div>
+              <p>Browser Preview</p>
+              <p className="placeholder-sub">Live preview for frontend work</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
-}
-
-function SidebarContent({ mode }: { mode: SidebarMode }) {
-  switch (mode) {
-    case "code":
-      return <CodeEditor />;
-    case "diff":
-      return (
-        <div className="sidebar-placeholder">
-          <div className="placeholder-icon">+/-</div>
-          <p>Diff Viewer</p>
-          <p className="placeholder-sub">Syntax-highlighted diff of focused terminal's worktree</p>
-        </div>
-      );
-    case "git":
-      return (
-        <div className="sidebar-placeholder">
-          <div className="placeholder-icon">*</div>
-          <p>Git Graph</p>
-          <p className="placeholder-sub">Branch visualization + commit history</p>
-        </div>
-      );
-    case "browser":
-      return (
-        <div className="sidebar-placeholder">
-          <div className="placeholder-icon">W</div>
-          <p>Browser Preview</p>
-          <p className="placeholder-sub">Live preview for frontend work</p>
-        </div>
-      );
-  }
 }

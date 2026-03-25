@@ -21,6 +21,7 @@ dependencies = [
 name = "ai-terminal"
 version = "0.1.0"
 dependencies = [
+ "dirs",
  "parking_lot",
  "portable-pty",
  "serde",

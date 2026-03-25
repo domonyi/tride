@@ -10,6 +10,8 @@ export function CodeEditor() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const startedRef = useRef(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const lastFolderRef = useRef<string | null>(null);
 
   const activeProject = state.projects.find((p) => p.id === state.activeProjectId);
   const activeTerminal = activeProject?.terminals.find(
@@ -17,6 +19,7 @@ export function CodeEditor() {
   );
   const folderPath = activeTerminal?.cwd || activeProject?.path || null;
 
+  // Start Theia server (once)
   useEffect(() => {
     if (startedRef.current) {
       if (theiaStarted) setReady(true);
@@ -28,7 +31,6 @@ export function CodeEditor() {
 
     const startTheia = async () => {
       try {
-        // Check if already running
         try {
           await fetch(`http://localhost:${THEIA_PORT}`, { mode: "no-cors" });
           theiaStarted = true;
@@ -36,13 +38,11 @@ export function CodeEditor() {
           return;
         } catch {}
 
-        // Start via Tauri command
         await invoke("start_theia", {
           port: THEIA_PORT,
           rootDir: folderPath,
         });
 
-        // Poll until ready
         for (let i = 0; i < 30; i++) {
           await new Promise((r) => setTimeout(r, 1000));
           try {
@@ -60,6 +60,24 @@ export function CodeEditor() {
 
     startTheia();
   }, [folderPath]);
+
+  // Update iframe when folder changes — must force full reload
+  useEffect(() => {
+    if (!ready || !folderPath || !iframeRef.current) return;
+    if (folderPath === lastFolderRef.current) return;
+
+    lastFolderRef.current = folderPath;
+    const normalized = folderPath.replace(/\\/g, "/");
+    const url = `http://localhost:${THEIA_PORT}/#${normalized}`;
+
+    // Force reload by briefly setting to blank then back
+    iframeRef.current.src = "about:blank";
+    setTimeout(() => {
+      if (iframeRef.current) {
+        iframeRef.current.src = url;
+      }
+    }, 50);
+  }, [ready, folderPath]);
 
   if (error) {
     return (
@@ -91,10 +109,13 @@ export function CodeEditor() {
     );
   }
 
+  const normalized = folderPath.replace(/\\/g, "/");
+
   return (
     <div className="vscode-embed">
       <iframe
-        src={`http://localhost:${THEIA_PORT}/#${folderPath.replace(/\\/g, "/")}`}
+        ref={iframeRef}
+        src={`http://localhost:${THEIA_PORT}/#${normalized}`}
         className="vscode-iframe"
         title="Theia IDE"
       />

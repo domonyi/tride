@@ -1,21 +1,52 @@
-import { useEffect } from "react";
-import { AppProvider, useAppDispatch } from "./state/context";
+import { useEffect, useRef } from "react";
+import { AppProvider, useAppState, useAppDispatch } from "./state/context";
 import { TitleBar } from "./components/TitleBar";
 import { ProjectTabs } from "./components/ProjectTabs";
 import { TerminalTabs } from "./components/TerminalTabs";
 import { TerminalGrid } from "./components/TerminalGrid";
 import { Sidebar } from "./components/Sidebar";
 import { ActionBar } from "./components/ActionBar";
+import { saveSession, loadSession } from "./state/session";
 import type { SidebarMode } from "./types";
 import "./styles.css";
 
 function AppContent() {
+  const state = useAppState();
   const dispatch = useAppDispatch();
+  const loadedRef = useRef(false);
+
+  // Restore session on startup
+  useEffect(() => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
+
+    loadSession().then((session) => {
+      if (session) {
+        dispatch({ type: "RESTORE_SESSION", state: session });
+        // Restore sidebar width if saved
+        if (session.sidebarWidth) {
+          const sidebar = document.querySelector(".sidebar") as HTMLElement;
+          if (sidebar) sidebar.style.width = `${session.sidebarWidth}px`;
+        }
+      }
+    });
+  }, [dispatch]);
+
+  // Auto-save session on state changes (debounced)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!loadedRef.current) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      const sidebar = document.querySelector(".sidebar") as HTMLElement;
+      const width = sidebar?.offsetWidth;
+      saveSession(state, width);
+    }, 1000);
+  }, [state]);
 
   // Global keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // F1-F4 for sidebar modes
       const modeMap: Record<string, SidebarMode> = {
         F1: "code",
         F2: "diff",
@@ -27,7 +58,6 @@ function AppContent() {
         dispatch({ type: "SET_SIDEBAR_MODE", mode: modeMap[e.key] });
       }
 
-      // Ctrl+B toggle sidebar
       if (e.ctrlKey && e.key === "b") {
         e.preventDefault();
         dispatch({ type: "TOGGLE_SIDEBAR" });

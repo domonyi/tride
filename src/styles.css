@@ -427,6 +427,13 @@ body,
   flex-direction: column;
 }
 
+.sidebar-panel {
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* ── VS Code Embed ───────────────────────────────────────────────────── */
 .vscode-embed {
   flex: 1;
