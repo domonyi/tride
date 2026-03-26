@@ -66,6 +66,11 @@ fn read_file(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+fn read_file_base64(path: String) -> Result<String, String> {
+    fs::read_file_base64(&path)
+}
+
+#[tauri::command]
 fn write_file(path: String, content: String) -> Result<(), String> {
     fs::write_file(&path, &content)
 }
@@ -284,6 +289,7 @@ pub fn run() {
             get_home_dir,
             list_dir,
             read_file,
+            read_file_base64,
             write_file,
             read_dts_files,
             read_project_sources,

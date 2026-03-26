@@ -1,9 +1,14 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useAppState, useAppDispatch } from "../state/context";
 
 export function BrowserPanel() {
-  const [url, setUrl] = useState<string | null>(null);
-  const [inputUrl, setInputUrl] = useState("http://localhost:3000");
-  const [loading, setLoading] = useState(false);
+  const state = useAppState();
+  const dispatch = useAppDispatch();
+  const savedUrl = state.lastBrowserUrl;
+
+  const [url, setUrl] = useState<string | null>(savedUrl);
+  const [inputUrl, setInputUrl] = useState(savedUrl || "http://localhost:3000");
+  const [loading, setLoading] = useState(!!savedUrl);
   const [error, setError] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -17,7 +22,8 @@ export function BrowserPanel() {
     setUrl(target);
     setLoading(true);
     setError(false);
-  }, [inputUrl]);
+    dispatch({ type: "SET_LAST_BROWSER_URL", url: target });
+  }, [inputUrl, dispatch]);
 
   const reload = useCallback(() => {
     if (iframeRef.current && url) {
@@ -48,11 +54,12 @@ export function BrowserPanel() {
         setUrl(nav);
         setLoading(true);
         setError(false);
+        dispatch({ type: "SET_LAST_BROWSER_URL", url: nav });
       }
     };
     window.addEventListener("browser-navigate", handler);
     return () => window.removeEventListener("browser-navigate", handler);
-  }, []);
+  }, [dispatch]);
 
   // Detect load completion
   useEffect(() => {

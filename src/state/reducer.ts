@@ -12,6 +12,8 @@ export const initialState: AppState = {
   explorerVisible: true,
   explorerWidth: 180,
   scmChangesHeight: null,
+  lastBrowserUrl: null,
+  commitMessage: "",
 };
 
 export function appReducer(state: AppState, action: AppAction): AppState {
@@ -107,6 +109,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "SET_SCM_CHANGES_HEIGHT":
       return { ...state, scmChangesHeight: action.height };
+
+    case "SET_LAST_BROWSER_URL":
+      return { ...state, lastBrowserUrl: action.url };
+
+    case "SET_COMMIT_MESSAGE":
+      return { ...state, commitMessage: action.message };
 
     case "RESTORE_SESSION":
       return { ...state, ...action.state };

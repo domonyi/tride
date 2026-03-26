@@ -35,6 +35,8 @@ export interface AppState {
   explorerVisible: boolean;
   explorerWidth: number;
   scmChangesHeight: number | null;
+  lastBrowserUrl: string | null;
+  commitMessage: string;
 }
 
 export type AppAction =
@@ -53,4 +55,6 @@ export type AppAction =
   | { type: "TOGGLE_EXPLORER" }
   | { type: "SET_EXPLORER_WIDTH"; width: number }
   | { type: "SET_SCM_CHANGES_HEIGHT"; height: number | null }
+  | { type: "SET_LAST_BROWSER_URL"; url: string | null }
+  | { type: "SET_COMMIT_MESSAGE"; message: string }
   | { type: "RESTORE_SESSION"; state: Partial<AppState> };

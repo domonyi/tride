@@ -128,7 +128,10 @@ export function SourceControl() {
   const [commits, setCommits] = useState<GitCommitInfo[]>([]);
   const [branches, setBranches] = useState<GitBranchInfo[]>([]);
   const [currentBranch, setCurrentBranch] = useState("");
-  const [commitMsg, setCommitMsg] = useState("");
+  const commitMsg = state.commitMessage;
+  const setCommitMsg = useCallback((msg: string) => {
+    dispatch({ type: "SET_COMMIT_MESSAGE", message: msg });
+  }, [dispatch]);
   const [actionOutput, setActionOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

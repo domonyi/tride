@@ -26,6 +26,8 @@ interface SavedSession {
   scmChangesHeight: number | null;
   explorerVisible: boolean;
   explorerWidth: number;
+  lastBrowserUrl: string | null;
+  commitMessage: string;
 }
 
 async function resolveSessionPath(): Promise<string> {
@@ -62,6 +64,8 @@ export async function saveSession(state: AppState): Promise<void> {
     scmChangesHeight: state.scmChangesHeight,
     explorerVisible: state.explorerVisible,
     explorerWidth: state.explorerWidth,
+    lastBrowserUrl: state.lastBrowserUrl,
+    commitMessage: state.commitMessage,
   };
 
   try {
@@ -86,6 +90,8 @@ export interface RestoredSession {
   scmChangesHeight: number | null;
   explorerVisible: boolean;
   explorerWidth: number;
+  lastBrowserUrl: string | null;
+  commitMessage: string;
 }
 
 export async function loadSession(): Promise<RestoredSession | null> {
@@ -112,6 +118,8 @@ export async function loadSession(): Promise<RestoredSession | null> {
       scmChangesHeight: session.scmChangesHeight ?? null,
       explorerVisible: session.explorerVisible ?? true,
       explorerWidth: session.explorerWidth ?? 180,
+      lastBrowserUrl: session.lastBrowserUrl ?? null,
+      commitMessage: session.commitMessage ?? "",
     };
   } catch {
     return null;

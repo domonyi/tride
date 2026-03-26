@@ -32,21 +32,10 @@ export function ActionBar() {
   return (
     <div className="action-bar">
       <div className="action-bar-info">
-        {activeTerminal ? (
-          <>
-            <span className={`status-dot ${activeTerminal.status}`} />
-            <span>{activeTerminal.title}</span>
-            {currentBranch && (
-              <span className="action-bar-branch">
-                <span className="scm-branch-icon">&#9741;</span> {currentBranch}
-              </span>
-            )}
-            {activeTerminal.filesChanged !== undefined && (
-              <span className="action-bar-changes">{activeTerminal.filesChanged} files</span>
-            )}
-          </>
-        ) : (
-          <span className="action-bar-hint">Select a terminal</span>
+        {currentBranch && (
+          <span className="action-bar-branch">
+            <span className="scm-branch-icon">&#9741;</span> {currentBranch}
+          </span>
         )}
       </div>
       <div className="action-bar-actions">

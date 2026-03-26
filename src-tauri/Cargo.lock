@@ -21,6 +21,7 @@ dependencies = [
 name = "ai-terminal"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "dirs",
  "parking_lot",
  "portable-pty",

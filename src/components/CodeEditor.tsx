@@ -5,6 +5,24 @@ import { invoke } from "@tauri-apps/api/core";
 import { FileTree } from "./FileTree";
 import { useAppState, useAppDispatch } from "../state/context";
 import { useLsp } from "../hooks/useLsp";
+import { ImagePreview } from "./ImagePreview";
+
+const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "bmp", "webp", "svg", "ico"]);
+
+function isImageFile(path: string): boolean {
+  const ext = path.split(".").pop()?.toLowerCase() || "";
+  return IMAGE_EXTENSIONS.has(ext);
+}
+
+function getMimeType(path: string): string {
+  const ext = path.split(".").pop()?.toLowerCase() || "";
+  const map: Record<string, string> = {
+    png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
+    gif: "image/gif", bmp: "image/bmp", webp: "image/webp",
+    svg: "image/svg+xml", ico: "image/x-icon",
+  };
+  return map[ext] || "image/png";
+}
 
 function getLanguage(path: string): string {
   const ext = path.split(".").pop()?.toLowerCase();
@@ -363,29 +381,54 @@ export function CodeEditor() {
     }
   }, [state.lastOpenedFile, rootPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Keep a ref to openFileFromPath so the event listener always uses the latest
+  const openFileRef = useRef<(path: string) => void>(() => {});
+
   // Open file from external request (e.g. ctrl+click in terminal)
   useEffect(() => {
     const handler = (e: Event) => {
-      const path = (e as CustomEvent<string>).detail;
-      if (path) openFileFromPath(path);
+      const filePath = (e as CustomEvent<string>).detail;
+      if (filePath) openFileRef.current(filePath);
     };
     window.addEventListener("open-file", handler);
     return () => window.removeEventListener("open-file", handler);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
-  const openFileFromPath = async (path: string) => {
+  const openFileFromPath = async (rawPath: string) => {
     try {
-      const content = await invoke<string>("read_file", { path });
+      // Resolve relative paths against the project root
+      let path = rawPath;
+      if (rootPath && !/^[a-zA-Z]:/.test(path) && !path.startsWith("/")) {
+        path = rootPath.replace(/\\/g, "/") + "/" + path;
+      }
+      // Also try if the tab is already open
+      const existing = tabs.find((t) => t.path === path);
+      if (existing) { setActiveTab(path); return; }
+
       const name = path.split(/[/\\]/).pop() || "untitled";
-      setTabs((prev) => {
-        if (prev.some((t) => t.path === path)) return prev;
-        return [...prev, { path, name, content, modified: false }];
-      });
-      setActiveTab(path);
-      versionRef.current.set(path, 1);
-      lsp.didOpen(fileToUri(path), getLspLanguageId(path), 1, content);
+      if (isImageFile(path)) {
+        const base64 = await invoke<string>("read_file_base64", { path });
+        const dataUrl = `data:${getMimeType(path)};base64,${base64}`;
+        setTabs((prev) => {
+          if (prev.some((t) => t.path === path)) return prev;
+          return [...prev, { path, name, content: dataUrl, modified: false }];
+        });
+        setActiveTab(path);
+      } else {
+        const content = await invoke<string>("read_file", { path });
+        setTabs((prev) => {
+          if (prev.some((t) => t.path === path)) return prev;
+          return [...prev, { path, name, content, modified: false }];
+        });
+        setActiveTab(path);
+        versionRef.current.set(path, 1);
+        lsp.didOpen(fileToUri(path), getLspLanguageId(path), 1, content);
+      }
     } catch {}
   };
+
+  // Keep ref in sync so event listener always uses latest closure
+  openFileRef.current = openFileFromPath;
 
   const openFile = useCallback(async (path: string) => {
     const existing = tabs.find((t) => t.path === path);
@@ -393,12 +436,20 @@ export function CodeEditor() {
 
     setLoading(true);
     try {
-      const content = await invoke<string>("read_file", { path });
-      const name = path.split(/[/\\]/).pop() || "untitled";
-      setTabs((prev) => [...prev, { path, name, content, modified: false }]);
-      setActiveTab(path);
-      versionRef.current.set(path, 1);
-      lsp.didOpen(fileToUri(path), getLspLanguageId(path), 1, content);
+      if (isImageFile(path)) {
+        const base64 = await invoke<string>("read_file_base64", { path });
+        const dataUrl = `data:${getMimeType(path)};base64,${base64}`;
+        const name = path.split(/[/\\]/).pop() || "untitled";
+        setTabs((prev) => [...prev, { path, name, content: dataUrl, modified: false }]);
+        setActiveTab(path);
+      } else {
+        const content = await invoke<string>("read_file", { path });
+        const name = path.split(/[/\\]/).pop() || "untitled";
+        setTabs((prev) => [...prev, { path, name, content, modified: false }]);
+        setActiveTab(path);
+        versionRef.current.set(path, 1);
+        lsp.didOpen(fileToUri(path), getLspLanguageId(path), 1, content);
+      }
     } catch (e) {
       console.error("Failed to read file:", e);
     } finally {
@@ -474,12 +525,14 @@ export function CodeEditor() {
               >
                 <span>{tab.name}</span>
                 {tab.modified && <span className="code-editor-modified">&bull;</span>}
-                <span className="code-editor-close" onClick={(e) => closeTab(tab.path, e)}>x</span>
+                <span className="code-editor-close" onClick={(e) => closeTab(tab.path, e)}>&times;</span>
               </div>
             ))}
           </div>
         )}
-        {currentTab ? (
+        {currentTab && isImageFile(currentTab.path) ? (
+          <ImagePreview src={currentTab.content} name={currentTab.name} />
+        ) : currentTab ? (
           <Editor
             key={currentTab.path}
             height="100%"

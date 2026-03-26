@@ -80,7 +80,8 @@ export function useTerminal({ ptyId, onLinkClick }: UseTerminalOptions) {
 
     // Ctrl+Click link detection (URLs and file paths)
     const URL_REGEX = /https?:\/\/[^\s'"\]>)]+/;
-    const FILE_PATH_REGEX = /(?:[a-zA-Z]:[/\\]|\.{0,2}[/\\])[^\s:'"]+(?::\d+)?/;
+    // Matches: C:\path, ./path, ../path, \path, and bare relative paths like src\file.ext or src/file.ext
+    const FILE_PATH_REGEX = /(?:[a-zA-Z]:[/\\]|\.{0,2}[/\\])[^\s:'"()]+(?::\d+)?|(?<=[(\s]|^)[a-zA-Z_][\w\-.]*([\\/][\w\-. ]+)+\.\w+(?::\d+)?/;
 
     xterm.registerLinkProvider({
       provideLinks: (lineNumber, callback) => {
@@ -202,12 +203,24 @@ export function useTerminal({ ptyId, onLinkClick }: UseTerminalOptions) {
     });
 
     // PTY output -> write to xterm (event-based, no polling)
+    // Suppress cursor blink during rapid output to prevent flickering
     let unlistenData: UnlistenFn | null = null;
     let unlistenExit: UnlistenFn | null = null;
+    let blinkTimer: ReturnType<typeof setTimeout> | null = null;
 
     const setupListeners = async () => {
       unlistenData = await listen<PtyDataEvent>("pty-data", (event) => {
         if (event.payload.id === ptyId && xtermRef.current) {
+          // Hide cursor during burst output
+          if (xtermRef.current.options.cursorBlink) {
+            xtermRef.current.options.cursorBlink = false;
+          }
+          if (blinkTimer) clearTimeout(blinkTimer);
+          blinkTimer = setTimeout(() => {
+            if (xtermRef.current) {
+              xtermRef.current.options.cursorBlink = true;
+            }
+          }, 150);
           xtermRef.current.write(new Uint8Array(event.payload.data));
         }
       });
@@ -225,6 +238,7 @@ export function useTerminal({ ptyId, onLinkClick }: UseTerminalOptions) {
       inputDisposable.dispose();
       unlistenData?.();
       unlistenExit?.();
+      if (blinkTimer) clearTimeout(blinkTimer);
     };
   }, [ptyId]);
 

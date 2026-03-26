@@ -22,12 +22,18 @@ export function TerminalPane({ terminal }: TerminalPaneProps) {
     }
     // File path — open in code editor
     // Strip trailing :lineNumber if present
-    const filePath = link.replace(/:\d+$/, "").replace(/\\/g, "/");
+    let filePath = link.replace(/:\d+$/, "").replace(/\\/g, "/");
+    // Resolve relative paths against the terminal's cwd
+    if (terminal.cwd && !/^[a-zA-Z]:/.test(filePath) && !filePath.startsWith("/")) {
+      // Strip leading ./ if present
+      const rel = filePath.replace(/^\.\//, "");
+      filePath = terminal.cwd.replace(/\\/g, "/") + "/" + rel;
+    }
     dispatch({ type: "SET_SIDEBAR_MODE", mode: "code" });
     if (!state.sidebarVisible) dispatch({ type: "TOGGLE_SIDEBAR" });
     dispatch({ type: "SET_LAST_OPENED_FILE", path: filePath });
     window.dispatchEvent(new CustomEvent("open-file", { detail: filePath }));
-  }, [dispatch, state.sidebarVisible]);
+  }, [dispatch, state.sidebarVisible, terminal.cwd]);
 
   const { containerRef } = useTerminal({ ptyId: terminal.ptyId, onLinkClick: handleLinkClick });
 
