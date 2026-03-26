@@ -1,16 +1,19 @@
 import { AppState, AppAction } from "../types";
+import { loadLayoutState } from "./localStorage";
+
+const cached = loadLayoutState();
 
 export const initialState: AppState = {
-  projects: [],
-  activeProjectId: null,
+  projects: cached.projects ?? [],
+  activeProjectId: cached.activeProjectId ?? null,
   activeTerminalId: null,
-  gridLayout: { rows: 2, cols: 2 },
-  sidebarMode: "code",
-  sidebarVisible: true,
-  sidebarWidth: 340,
+  gridLayout: cached.gridLayout ?? { rows: 2, cols: 2 },
+  sidebarMode: cached.sidebarMode ?? "code",
+  sidebarVisible: cached.sidebarVisible ?? true,
+  sidebarWidth: cached.sidebarWidth ?? 340,
   lastOpenedFile: null,
-  explorerVisible: true,
-  explorerWidth: 180,
+  explorerVisible: cached.explorerVisible ?? true,
+  explorerWidth: cached.explorerWidth ?? 180,
   scmChangesHeight: null,
   lastBrowserUrl: null,
   commitMessage: "",

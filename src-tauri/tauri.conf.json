@@ -20,7 +20,8 @@
         "decorations": false,
         "resizable": true,
         "maximized": true,
-        "theme": "Dark"
+        "theme": "Dark",
+        "backgroundColor": [24, 24, 24, 255]
       }
     ],
     "security": {

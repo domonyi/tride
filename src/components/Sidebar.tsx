@@ -1,8 +1,8 @@
 import { useRef, useCallback, lazy, Suspense } from "react";
 import { useAppState, useAppDispatch } from "../state/context";
-import { CodeEditor } from "./CodeEditor";
 import type { SidebarMode } from "../types";
 
+const CodeEditor = lazy(() => import("./CodeEditor").then((m) => ({ default: m.CodeEditor })));
 const SourceControl = lazy(() => import("./SourceControl").then((m) => ({ default: m.SourceControl })));
 const BrowserPanel = lazy(() => import("./BrowserPanel").then((m) => ({ default: m.BrowserPanel })));
 
@@ -71,7 +71,9 @@ export function Sidebar() {
         </div>
         <div className="sidebar-content">
           <div className="sidebar-panel" style={{ display: state.sidebarMode === "code" ? "flex" : "none" }}>
-            <CodeEditor />
+            <Suspense fallback={<div className="code-editor-loading">Loading...</div>}>
+              <CodeEditor />
+            </Suspense>
           </div>
           {state.sidebarMode === "scm" && (
             <div className="sidebar-panel" style={{ display: "flex" }}>
