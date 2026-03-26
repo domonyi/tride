@@ -32,14 +32,24 @@ export function ProjectTabs() {
   return (
     <div className="project-tabs">
       {state.projects.map((project) => (
-        <button
+        <div
           key={project.id}
           className={`project-tab ${state.activeProjectId === project.id ? "active" : ""}`}
           onClick={() => dispatch({ type: "SET_ACTIVE_PROJECT", projectId: project.id })}
           title={project.path}
         >
-          {project.name}
-        </button>
+          <span>{project.name}</span>
+          <span
+            className="project-tab-close"
+            onClick={(e) => {
+              e.stopPropagation();
+              dispatch({ type: "REMOVE_PROJECT", projectId: project.id });
+            }}
+            title="Close project"
+          >
+            &times;
+          </span>
+        </div>
       ))}
       <button className="project-tab add-tab" onClick={addProject}>
         +

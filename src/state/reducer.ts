@@ -11,6 +11,7 @@ export const initialState: AppState = {
   lastOpenedFile: null,
   explorerVisible: true,
   explorerWidth: 180,
+  scmChangesHeight: null,
 };
 
 export function appReducer(state: AppState, action: AppAction): AppState {
@@ -19,18 +20,25 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         projects: [...state.projects, action.project],
-        activeProjectId: state.activeProjectId ?? action.project.id,
+        activeProjectId: action.project.id,
+        activeTerminalId: null,
       };
 
-    case "REMOVE_PROJECT":
+    case "REMOVE_PROJECT": {
+      const remaining = state.projects.filter((p) => p.id !== action.projectId);
       return {
         ...state,
-        projects: state.projects.filter((p) => p.id !== action.projectId),
+        projects: remaining,
         activeProjectId:
           state.activeProjectId === action.projectId
-            ? state.projects[0]?.id ?? null
+            ? remaining[0]?.id ?? null
             : state.activeProjectId,
+        activeTerminalId:
+          state.activeProjectId === action.projectId
+            ? null
+            : state.activeTerminalId,
       };
+    }
 
     case "SET_ACTIVE_PROJECT":
       return { ...state, activeProjectId: action.projectId, activeTerminalId: null };
@@ -96,6 +104,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "SET_EXPLORER_WIDTH":
       return { ...state, explorerWidth: action.width };
+
+    case "SET_SCM_CHANGES_HEIGHT":
+      return { ...state, scmChangesHeight: action.height };
 
     case "RESTORE_SESSION":
       return { ...state, ...action.state };

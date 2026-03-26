@@ -80,13 +80,11 @@ export function Sidebar() {
               </Suspense>
             </div>
           )}
-          {state.sidebarMode === "browser" && (
-            <div className="sidebar-panel" style={{ display: "flex" }}>
-              <Suspense fallback={<div className="code-editor-loading">Loading...</div>}>
-                <BrowserPanel />
-              </Suspense>
-            </div>
-          )}
+          <div className="sidebar-panel" style={{ display: state.sidebarMode === "browser" ? "flex" : "none" }}>
+            <Suspense fallback={<div className="code-editor-loading">Loading...</div>}>
+              <BrowserPanel />
+            </Suspense>
+          </div>
         </div>
       </div>
     </div>

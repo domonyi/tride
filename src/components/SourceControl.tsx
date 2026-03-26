@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { DiffEditor, type BeforeMount } from "@monaco-editor/react";
 import { invoke } from "@tauri-apps/api/core";
-import { useAppState } from "../state/context";
+import { useAppState, useAppDispatch } from "../state/context";
 
 interface GitFileStatus {
   path: string;
@@ -122,6 +122,7 @@ function statusColor(s: string): string {
 
 export function SourceControl() {
   const state = useAppState();
+  const dispatch = useAppDispatch();
   const [view, setView] = useState<View>("changes");
   const [files, setFiles] = useState<GitFileStatus[]>([]);
   const [commits, setCommits] = useState<GitCommitInfo[]>([]);
@@ -140,6 +141,14 @@ export function SourceControl() {
   const [newBranchName, setNewBranchName] = useState("");
   const [showNewBranch, setShowNewBranch] = useState(false);
   const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
+  const [stagedOpen, setStagedOpen] = useState(true);
+  const [unstagedOpen, setUnstagedOpen] = useState(true);
+  const changesHeight = state.scmChangesHeight;
+  const setChangesHeight = useCallback((h: number | null) => {
+    dispatch({ type: "SET_SCM_CHANGES_HEIGHT", height: h });
+  }, [dispatch]);
+  const changesRef = useRef<HTMLDivElement>(null);
+  const changesInnerRef = useRef<HTMLDivElement>(null);
 
   const activeProject = state.projects.find((p) => p.id === state.activeProjectId);
   const activeTerminal = activeProject?.terminals.find((t) => t.id === state.activeTerminalId);
@@ -183,6 +192,7 @@ export function SourceControl() {
     if (view === "history") refreshHistory();
     if (view === "branches") refreshBranches();
   }, [isVisible, cwd, view]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   // Open diff for a working tree file
   const openWorkingDiff = useCallback(async (filePath: string, staged: boolean) => {
@@ -317,6 +327,33 @@ export function SourceControl() {
     } catch (e) { setActionOutput(`Error: ${e}`); }
   }, [cwd, refreshBranches]);
 
+  const toggleStaged = useCallback(() => {
+    setStagedOpen((prev) => !prev);
+    setChangesHeight(null);
+  }, [setChangesHeight]);
+
+  const toggleUnstaged = useCallback(() => {
+    setUnstagedOpen((prev) => !prev);
+    setChangesHeight(null);
+  }, [setChangesHeight]);
+
+  const onResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = changesRef.current?.offsetHeight ?? 200;
+    // Measure natural content height from the inner wrapper
+    const maxH = changesInnerRef.current?.offsetHeight ?? Infinity;
+    const onMove = (ev: MouseEvent) => {
+      setChangesHeight(Math.min(maxH, Math.max(30, startH + (ev.clientY - startY))));
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, []);
+
   if (!cwd) {
     return (
       <div className="sidebar-placeholder">
@@ -343,55 +380,6 @@ export function SourceControl() {
 
   return (
     <div className="scm-panel">
-      {/* Header: branch selector */}
-      <div className="scm-header">
-        <div className="scm-branch-selector" onClick={() => { setBranchDropdownOpen(!branchDropdownOpen); if (!branchDropdownOpen) refreshBranches(); }}>
-          <span className="scm-branch-icon">&#9741;</span>
-          <span className="scm-branch-label">{currentBranch}</span>
-          <span className="scm-branch-arrow">{branchDropdownOpen ? "\u25B4" : "\u25BE"}</span>
-        </div>
-        <button className="scm-icon-btn" onClick={refresh} title="Refresh">&#8635;</button>
-      </div>
-
-      {/* Branch dropdown */}
-      {branchDropdownOpen && (
-        <div className="scm-branch-dropdown">
-          <div className="scm-branch-dropdown-header">
-            <span>Branches</span>
-            <button className="scm-icon-btn small" onClick={() => setShowNewBranch(!showNewBranch)} title="New branch">+</button>
-          </div>
-          {showNewBranch && (
-            <div className="scm-new-branch">
-              <input
-                className="scm-input"
-                value={newBranchName}
-                onChange={(e) => setNewBranchName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") createBranch(); if (e.key === "Escape") setShowNewBranch(false); }}
-                placeholder="New branch name..."
-                autoFocus
-              />
-              <button className="scm-icon-btn small" onClick={createBranch}>&#10003;</button>
-            </div>
-          )}
-          {branches.filter((b) => !b.remote).map((b) => (
-            <div key={b.name} className={`scm-branch-option ${b.current ? "current" : ""}`} onClick={() => !b.current && switchBranch(b.name)}>
-              <span className="scm-branch-option-name">{b.current ? "* " : ""}{b.name}</span>
-              {!b.current && <button className="scm-icon-btn tiny" onClick={(e) => { e.stopPropagation(); deleteBranch(b.name); }} title="Delete">x</button>}
-            </div>
-          ))}
-          {branches.some((b) => b.remote) && (
-            <>
-              <div className="scm-branch-dropdown-divider" />
-              {branches.filter((b) => b.remote).map((b) => (
-                <div key={b.name} className="scm-branch-option remote" onClick={() => switchBranch(b.name.replace(/^remotes\/origin\//, ""))}>
-                  <span className="scm-branch-option-name">{b.name}</span>
-                </div>
-              ))}
-            </>
-          )}
-        </div>
-      )}
-
       {/* View tabs */}
       <div className="scm-tabs">
         {(["changes", "history", "branches"] as View[]).map((v) => (
@@ -403,70 +391,85 @@ export function SourceControl() {
 
       {/* Main content area - split between list and diff */}
       <div className="scm-body">
-        <div className="scm-list-area">
-          {/* CHANGES VIEW */}
-          {view === "changes" && (
-            <>
-              {/* Staged section */}
-              {stagedFiles.length > 0 && (
-                <div className="scm-section">
-                  <div className="scm-section-header">
-                    <span>Staged Changes ({stagedFiles.length})</span>
-                  </div>
-                  {stagedFiles.map((f, i) => (
-                    <div key={`s-${i}`} className={`scm-file ${diffTarget?.kind === "working" && diffFile === f.path ? "selected" : ""}`} onClick={() => openWorkingDiff(f.path, true)}>
-                      <span className="scm-file-indicator" style={{ background: statusColor(f.status) }} />
-                      <span className="scm-file-status" style={{ color: statusColor(f.status) }}>{statusIcon(f.status)}</span>
-                      <span className="scm-file-path">{f.path}</span>
-                      <button className="scm-file-action" onClick={(e) => { e.stopPropagation(); unstageFile(f.path); }} title="Unstage">&minus;</button>
+        {/* CHANGES VIEW */}
+        {view === "changes" && (
+          <>
+            {/* Resizable file list */}
+            <div className="scm-changes-list" ref={changesRef} style={changesHeight != null ? { height: changesHeight } : undefined}>
+              <div className="scm-changes-inner" ref={changesInnerRef}>
+                {/* Staged section */}
+                {stagedFiles.length > 0 && (
+                  <>
+                    <div className="scm-section-header scm-accordion-header" onClick={toggleStaged}>
+                      <span className={`scm-accordion-arrow ${stagedOpen ? "open" : ""}`}>&#9654;</span>
+                      <span>Staged Changes ({stagedFiles.length})</span>
                     </div>
-                  ))}
-                </div>
-              )}
+                    {stagedOpen && (
+                      <div className="scm-file-list">
+                        {stagedFiles.map((f, i) => (
+                          <div key={`s-${i}`} className={`scm-file ${diffTarget?.kind === "working" && diffFile === f.path ? "selected" : ""}`} onClick={() => openWorkingDiff(f.path, true)}>
+                            <span className="scm-file-indicator" style={{ background: statusColor(f.status) }} />
+                            <span className="scm-file-status" style={{ color: statusColor(f.status) }}>{statusIcon(f.status)}</span>
+                            <span className="scm-file-path">{f.path}</span>
+                            <button className="scm-file-action" onClick={(e) => { e.stopPropagation(); unstageFile(f.path); }} title="Unstage">&minus;</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
 
-              {/* Unstaged section */}
-              <div className="scm-section">
-                <div className="scm-section-header">
+                {/* Unstaged section */}
+                <div className="scm-section-header scm-accordion-header" onClick={toggleUnstaged}>
+                  <span className={`scm-accordion-arrow ${unstagedOpen ? "open" : ""}`}>&#9654;</span>
                   <span>Changes ({unstagedFiles.length})</span>
                   {unstagedFiles.length > 0 && (
-                    <button className="scm-icon-btn small" onClick={stageAll} title="Stage All">+</button>
+                    <button className="scm-icon-btn small" onClick={(e) => { e.stopPropagation(); stageAll(); }} title="Stage All">+</button>
                   )}
                 </div>
-                {unstagedFiles.length === 0 && stagedFiles.length === 0 && (
-                  <div className="scm-empty">No changes</div>
-                )}
-                {unstagedFiles.map((f, i) => (
-                  <div key={`u-${i}`} className={`scm-file ${diffTarget?.kind === "working" && diffFile === f.path ? "selected" : ""}`} onClick={() => openWorkingDiff(f.path, false)}>
-                    <span className="scm-file-indicator" style={{ background: statusColor(f.status) }} />
-                    <span className="scm-file-status" style={{ color: statusColor(f.status) }}>{statusIcon(f.status)}</span>
-                    <span className="scm-file-path">{f.path}</span>
-                    <button className="scm-file-action" onClick={(e) => { e.stopPropagation(); stageFile(f.path); }} title="Stage">+</button>
+                {unstagedOpen && (
+                  <div className="scm-file-list">
+                    {unstagedFiles.map((f, i) => (
+                      <div key={`u-${i}`} className={`scm-file ${diffTarget?.kind === "working" && diffFile === f.path ? "selected" : ""}`} onClick={() => openWorkingDiff(f.path, false)}>
+                        <span className="scm-file-indicator" style={{ background: statusColor(f.status) }} />
+                        <span className="scm-file-status" style={{ color: statusColor(f.status) }}>{statusIcon(f.status)}</span>
+                        <span className="scm-file-path">{f.path}</span>
+                        <button className="scm-file-action" onClick={(e) => { e.stopPropagation(); stageFile(f.path); }} title="Stage">+</button>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
+            </div>
 
-              {/* Commit area */}
-              <div className="scm-commit-area">
-                <textarea
-                  className="scm-commit-input"
-                  value={commitMsg}
-                  onChange={(e) => setCommitMsg(e.target.value)}
-                  placeholder="Commit message..."
-                  rows={2}
-                  onKeyDown={(e) => { if (e.ctrlKey && e.key === "Enter") doCommit(); }}
-                />
-                <div className="scm-commit-actions">
-                  <button className="scm-commit-btn" onClick={doCommit} disabled={loading || !commitMsg.trim()}>
-                    Commit
-                  </button>
-                  <button className="scm-push-btn" onClick={doPush} disabled={loading}>
-                    Push
-                  </button>
-                </div>
+            {/* Resize handle */}
+            <div className="scm-resize-handle" onMouseDown={onResizeStart} />
+
+            {/* Commit area */}
+            <div className="scm-commit-area">
+              <textarea
+                className="scm-commit-input"
+                value={commitMsg}
+                onChange={(e) => setCommitMsg(e.target.value)}
+                placeholder="Commit message..."
+                rows={3}
+                onKeyDown={(e) => { if (e.ctrlKey && e.key === "Enter") doCommit(); }}
+              />
+              <div className="scm-commit-actions">
+                <button className="scm-commit-btn" onClick={doCommit} disabled={loading || !commitMsg.trim()}>
+                  Commit
+                </button>
+                <button className="scm-push-btn" onClick={doPush} disabled={loading}>
+                  Push
+                </button>
               </div>
-            </>
-          )}
+            </div>
+          </>
+        )}
 
+        {/* HISTORY & BRANCHES wrapped in list-area for scrolling */}
+        {view !== "changes" && (
+          <div className="scm-list-area">
           {/* HISTORY VIEW */}
           {view === "history" && (
             <div className="scm-history">
@@ -523,7 +526,7 @@ export function SourceControl() {
                   <div key={b.name} className={`scm-file ${b.current ? "current-branch" : ""}`} onClick={() => !b.current && switchBranch(b.name)}>
                     <span className="scm-file-indicator" style={{ background: b.current ? "var(--green)" : "var(--text-muted)" }} />
                     <span className="scm-file-path" style={{ color: b.current ? "var(--green)" : undefined }}>{b.name}</span>
-                    {!b.current && <button className="scm-file-action" onClick={(e) => { e.stopPropagation(); deleteBranch(b.name); }} title="Delete">x</button>}
+                    {!b.current && <button className="scm-file-action" onClick={(e) => { e.stopPropagation(); deleteBranch(b.name); }} title="Delete">&times;</button>}
                   </div>
                 ))}
               </div>
@@ -540,14 +543,15 @@ export function SourceControl() {
               )}
             </div>
           )}
-        </div>
+          </div>
+        )}
 
         {/* Diff viewer */}
         {diffTarget && (
           <div className="scm-diff-area">
             <div className="scm-diff-header">
               <span className="scm-diff-file-name">{diffTarget.file}</span>
-              <button className="scm-icon-btn small" onClick={() => setDiffTarget(null)} title="Close diff">x</button>
+              <button className="scm-icon-btn small" onClick={() => setDiffTarget(null)} title="Close diff">&times;</button>
             </div>
             <div className="scm-diff-editor">
               {diffLoading ? (

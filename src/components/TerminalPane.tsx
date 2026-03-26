@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { useTerminal } from "../hooks/useTerminal";
 import { Terminal } from "../types";
 import { useAppState, useAppDispatch } from "../state/context";
@@ -9,7 +10,26 @@ interface TerminalPaneProps {
 export function TerminalPane({ terminal }: TerminalPaneProps) {
   const state = useAppState();
   const dispatch = useAppDispatch();
-  const { containerRef } = useTerminal({ ptyId: terminal.ptyId });
+
+  const handleLinkClick = useCallback((link: string) => {
+    // URL — open in browser panel
+    if (/^https?:\/\//i.test(link)) {
+      dispatch({ type: "SET_SIDEBAR_MODE", mode: "browser" });
+      if (!state.sidebarVisible) dispatch({ type: "TOGGLE_SIDEBAR" });
+      // Dispatch a custom event so BrowserPanel can navigate
+      window.dispatchEvent(new CustomEvent("browser-navigate", { detail: link }));
+      return;
+    }
+    // File path — open in code editor
+    // Strip trailing :lineNumber if present
+    const filePath = link.replace(/:\d+$/, "").replace(/\\/g, "/");
+    dispatch({ type: "SET_SIDEBAR_MODE", mode: "code" });
+    if (!state.sidebarVisible) dispatch({ type: "TOGGLE_SIDEBAR" });
+    dispatch({ type: "SET_LAST_OPENED_FILE", path: filePath });
+    window.dispatchEvent(new CustomEvent("open-file", { detail: filePath }));
+  }, [dispatch, state.sidebarVisible]);
+
+  const { containerRef } = useTerminal({ ptyId: terminal.ptyId, onLinkClick: handleLinkClick });
 
   const isActive = state.activeTerminalId === terminal.id;
 

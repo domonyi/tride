@@ -244,34 +244,18 @@ export function useLsp(monaco: Monaco | null, projectRoot: string | null) {
 
     registerProviders(monaco);
 
-    const debugLog: string[] = [];
-    const debug = (msg: string) => {
-      debugLog.push(`[${new Date().toISOString()}] ${msg}`);
-      invoke("write_file", {
-        path: projectRoot!.replace(/\\/g, "/") + "/.aiterminal-lsp-debug.txt",
-        content: debugLog.join("\n"),
-      }).catch(() => {});
-    };
-
     const start = async () => {
-      debug(`Starting LSP for project: ${projectRoot}`);
-      debug(`Project root: ${projectRoot}`);
-      debug(`LSP ID: ${id}`);
-
       unlisten = await listen<LspMessageEvent>("lsp-message", (event) => {
         if (event.payload.id === id) {
-          debug(`LSP response: ${event.payload.data.substring(0, 200)}`);
           handleMsg(event.payload.data);
         }
       });
 
       try {
         await invoke("lsp_start", { id, projectRoot });
-        debug("lsp_start succeeded");
         lspId.current = id;
 
         const rootUri = fileToUri(projectRoot);
-        debug(`Sending initialize, rootUri: ${rootUri}`);
         await sendRequest("initialize", {
           processId: null,
           rootUri,
@@ -294,16 +278,12 @@ export function useLsp(monaco: Monaco | null, projectRoot: string | null) {
         notify("initialized", {});
         ready.current = true;
         sendReqFn.current = sendRequest;
-        debug("LSP fully initialized, ready=true, sendReqFn set");
         // Flush any didOpen calls that were queued before init
-        debug(`Flushing ${openQueue.current.length} queued didOpen calls`);
         for (const item of openQueue.current) {
-          debug(`  didOpen: ${item.uri}`);
           notify("textDocument/didOpen", { textDocument: { uri: item.uri, languageId: item.languageId, version: item.version, text: item.text } });
         }
         openQueue.current = [];
       } catch (e) {
-        debug(`LSP start FAILED: ${e}`);
         console.error("Failed to start LSP:", e);
       }
     };

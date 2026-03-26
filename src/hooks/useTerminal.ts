@@ -4,9 +4,11 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 
 interface UseTerminalOptions {
   ptyId: string | null;
+  onLinkClick?: (link: string) => void;
 }
 
 interface PtyDataEvent {
@@ -18,10 +20,12 @@ interface PtyExitEvent {
   id: string;
 }
 
-export function useTerminal({ ptyId }: UseTerminalOptions) {
+export function useTerminal({ ptyId, onLinkClick }: UseTerminalOptions) {
   const containerRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const onLinkClickRef = useRef(onLinkClick);
+  onLinkClickRef.current = onLinkClick;
 
   // Initialize xterm
   useEffect(() => {
@@ -72,6 +76,104 @@ export function useTerminal({ ptyId }: UseTerminalOptions) {
       try {
         fitAddon.fit();
       } catch {}
+    });
+
+    // Ctrl+Click link detection (URLs and file paths)
+    const URL_REGEX = /https?:\/\/[^\s'"\]>)]+/;
+    const FILE_PATH_REGEX = /(?:[a-zA-Z]:[/\\]|\.{0,2}[/\\])[^\s:'"]+(?::\d+)?/;
+
+    xterm.registerLinkProvider({
+      provideLinks: (lineNumber, callback) => {
+        const line = xterm.buffer.active.getLine(lineNumber - 1);
+        if (!line) { callback(undefined); return; }
+        const text = line.translateToString();
+        const links: any[] = [];
+
+        // Find URLs
+        let match: RegExpExecArray | null;
+        const urlRegex = new RegExp(URL_REGEX.source, "g");
+        while ((match = urlRegex.exec(text)) !== null) {
+          links.push({
+            range: { start: { x: match.index + 1, y: lineNumber }, end: { x: match.index + match[0].length, y: lineNumber } },
+            text: match[0],
+            activate: (_: any, linkText: string) => { onLinkClickRef.current?.(linkText); },
+          });
+        }
+
+        // Find file paths
+        const fileRegex = new RegExp(FILE_PATH_REGEX.source, "g");
+        while ((match = fileRegex.exec(text)) !== null) {
+          // Skip if already covered by a URL match
+          const start = match.index;
+          const end = start + match[0].length;
+          const overlaps = links.some((l) => start < l.range.end.x - 1 && end > l.range.start.x - 1);
+          if (!overlaps) {
+            links.push({
+              range: { start: { x: start + 1, y: lineNumber }, end: { x: end, y: lineNumber } },
+              text: match[0],
+              activate: (_: any, linkText: string) => { onLinkClickRef.current?.(linkText); },
+            });
+          }
+        }
+
+        callback(links.length > 0 ? links : undefined);
+      },
+    });
+
+    // Clipboard: Ctrl+C (copy when selection) and Ctrl+V (paste)
+    xterm.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+      if (event.type !== "keydown") return true;
+      const isCtrl = event.ctrlKey || event.metaKey;
+
+      // Ctrl+Shift+C: always copy
+      if (isCtrl && event.shiftKey && event.key === "C") {
+        const sel = xterm.getSelection();
+        if (sel) writeText(sel);
+        return false;
+      }
+
+      // Ctrl+C: copy if there's a selection, otherwise send SIGINT
+      if (isCtrl && !event.shiftKey && event.key === "c") {
+        const sel = xterm.getSelection();
+        if (sel) {
+          writeText(sel);
+          xterm.clearSelection();
+          return false;
+        }
+        return true; // let xterm send ^C to PTY
+      }
+
+      // Ctrl+V or Ctrl+Shift+V: paste from clipboard (supports images)
+      if (isCtrl && (event.key === "v" || event.key === "V")) {
+        event.preventDefault();
+        (async () => {
+          try {
+            const clipboardItems = await navigator.clipboard.read();
+            for (const item of clipboardItems) {
+              // Check for image types first
+              const imageType = item.types.find((t) => t.startsWith("image/"));
+              if (imageType) {
+                const blob = await item.getType(imageType);
+                const ext = imageType.split("/")[1] === "jpeg" ? "jpg" : imageType.split("/")[1] || "png";
+                const arrayBuf = await blob.arrayBuffer();
+                const bytes = Array.from(new Uint8Array(arrayBuf));
+                const path = await invoke<string>("save_clipboard_image", { data: bytes, extension: ext });
+                xterm.paste(path);
+                return;
+              }
+            }
+          } catch {
+            // navigator.clipboard.read() may not be available — fall through to text
+          }
+          // Fallback: plain text paste
+          readText().then((text) => {
+            if (text) xterm.paste(text);
+          });
+        })();
+        return false;
+      }
+
+      return true;
     });
 
     xtermRef.current = xterm;

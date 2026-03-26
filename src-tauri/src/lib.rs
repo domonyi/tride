@@ -229,6 +229,23 @@ fn lsp_stop(state: State<AppState>, id: String) -> Result<(), String> {
     Ok(())
 }
 
+// ── Clipboard Commands ──────────────────────────────────────────────────────
+
+#[tauri::command]
+async fn save_clipboard_image(data: Vec<u8>, extension: String) -> Result<String, String> {
+    let temp_dir = std::env::temp_dir().join("aiterminal-images");
+    std::fs::create_dir_all(&temp_dir)
+        .map_err(|e| format!("Failed to create temp dir: {}", e))?;
+
+    let filename = format!("paste-{}.{}", uuid::Uuid::new_v4(), extension);
+    let path = temp_dir.join(&filename);
+
+    std::fs::write(&path, &data)
+        .map_err(|e| format!("Failed to write image: {}", e))?;
+
+    Ok(path.to_string_lossy().to_string())
+}
+
 // ── Utility Commands ────────────────────────────────────────────────────────
 
 #[tauri::command]
@@ -253,6 +270,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .manage(AppState {
             pty_manager: Arc::new(PtyManager::new()),
             lsp_manager: Arc::new(LspManager::new()),
@@ -290,6 +308,7 @@ pub fn run() {
             lsp_send,
             lsp_stop,
             get_app_dir,
+            save_clipboard_image,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

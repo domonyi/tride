@@ -40,6 +40,14 @@ body,
   font-size: 13px;
   color: var(--text-primary);
   background: var(--bg-primary);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Allow text selection in specific areas */
+input, textarea, .xterm, .monaco-editor {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 /* ── Title Bar ───────────────────────────────────────────────────────── */
@@ -116,7 +124,9 @@ body,
 }
 
 .project-tab {
-  padding: 6px 16px;
+  display: flex;
+  align-items: center;
+  padding: 6px 10px 6px 16px;
   border: 1px solid transparent;
   border-bottom: none;
   border-radius: var(--radius) var(--radius) 0 0;
@@ -138,6 +148,30 @@ body,
   color: var(--text-primary);
   background: var(--bg-primary);
   border-color: var(--border);
+}
+
+.project-tab-close {
+  font-size: 14px;
+  color: var(--text-muted);
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  opacity: 0;
+  transition: all 0.15s;
+  margin-left: 4px;
+  line-height: 1;
+}
+
+.project-tab:hover .project-tab-close {
+  opacity: 1;
+}
+
+.project-tab-close:hover {
+  color: var(--red);
+  background: rgba(247, 118, 142, 0.15);
 }
 
 .project-tab.add-tab {
@@ -188,9 +222,13 @@ body,
 .terminal-tab .close-btn {
   opacity: 0;
   color: var(--text-muted);
-  font-size: 11px;
-  padding: 0 2px;
-  border-radius: 2px;
+  font-size: 12px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
   transition: all 0.15s;
 }
 
@@ -518,11 +556,15 @@ body,
 }
 
 .code-editor-close {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   opacity: 0;
-  padding: 0 2px;
-  border-radius: 2px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
   transition: all 0.1s;
 }
 
@@ -665,6 +707,10 @@ body,
   color: var(--magenta);
   font-family: monospace;
   font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 3px;
 }
 
 .action-bar-changes {
@@ -783,7 +829,7 @@ body,
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 8px;
+  padding: 5px 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg-primary);
@@ -815,8 +861,9 @@ body,
 
 .scm-branch-arrow {
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: 20px;
   margin-left: auto;
+  padding: 2px 4px;
 }
 
 .scm-icon-btn {
@@ -838,14 +885,28 @@ body,
 }
 
 .scm-icon-btn.small {
-  padding: 1px 5px;
-  font-size: 12px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
 }
 
 .scm-icon-btn.tiny {
-  padding: 0 3px;
-  font-size: 10px;
-  border: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   opacity: 0;
 }
 
@@ -975,8 +1036,8 @@ body,
 }
 
 .scm-list-area {
-  flex-shrink: 0;
-  max-height: 50%;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -988,15 +1049,18 @@ body,
 .scm-section-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 4px;
   padding: 5px 8px;
   font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
   background: var(--bg-surface);
-  position: sticky;
-  top: 0;
-  z-index: 1;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.scm-section-header .scm-icon-btn {
+  margin-left: auto;
 }
 
 .scm-empty {
@@ -1051,20 +1115,25 @@ body,
 }
 
 .scm-file-action {
-  padding: 0 4px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
   border: 1px solid transparent;
-  border-radius: 3px;
+  border-radius: 4px;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 16px;
   font-family: monospace;
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1;
   transition: all 0.15s;
   margin-left: auto;
   opacity: 0;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .scm-file:hover .scm-file-action {
@@ -1077,10 +1146,58 @@ body,
   border-color: var(--border);
 }
 
+/* Changes list (resizable) */
+.scm-changes-list {
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.scm-changes-inner {
+  /* Natural height — used for measurement */
+}
+
+.scm-file-list {
+  /* File items inside accordion */
+}
+
+/* Resize handle */
+.scm-resize-handle {
+  height: 4px;
+  cursor: ns-resize;
+  background: transparent;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.scm-resize-handle:hover,
+.scm-resize-handle:active {
+  background: var(--accent);
+  opacity: 0.5;
+}
+
+/* Accordion header */
+.scm-accordion-header {
+  cursor: pointer;
+  user-select: none;
+  gap: 4px;
+}
+
+.scm-accordion-arrow {
+  font-size: 8px;
+  transition: transform 0.15s;
+  display: inline-block;
+  color: var(--text-muted);
+}
+
+.scm-accordion-arrow.open {
+  transform: rotate(90deg);
+}
+
 /* Commit area */
 .scm-commit-area {
   padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .scm-commit-input {

@@ -14,6 +14,7 @@ function AppContent() {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const loadedRef = useRef(false);
+  const restoredRef = useRef(false);
 
   // Restore session on startup
   useEffect(() => {
@@ -34,13 +35,14 @@ function AppContent() {
           });
         });
       }
+      restoredRef.current = true;
     });
   }, [dispatch]);
 
   // Auto-save session on state changes (debounced)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (!loadedRef.current) return;
+    if (!restoredRef.current) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       saveSession(state);

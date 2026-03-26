@@ -37,6 +37,23 @@ export function BrowserPanel() {
     [navigate]
   );
 
+  // Listen for external navigation events (e.g. from terminal Ctrl+Click)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const target = (e as CustomEvent).detail as string;
+      if (target) {
+        setInputUrl(target);
+        let nav = target;
+        if (!/^https?:\/\//i.test(nav)) nav = "http://" + nav;
+        setUrl(nav);
+        setLoading(true);
+        setError(false);
+      }
+    };
+    window.addEventListener("browser-navigate", handler);
+    return () => window.removeEventListener("browser-navigate", handler);
+  }, []);
+
   // Detect load completion
   useEffect(() => {
     const iframe = iframeRef.current;

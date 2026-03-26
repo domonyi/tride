@@ -354,7 +354,7 @@ export function CodeEditor() {
     }
   }, [activeTab, dispatch]);
 
-  // Restore last opened file
+  // Restore last opened file on initial load
   useEffect(() => {
     if (!restoredRef.current && state.lastOpenedFile && rootPath) {
       restoredRef.current = true;
@@ -362,6 +362,16 @@ export function CodeEditor() {
       return () => clearTimeout(timer);
     }
   }, [state.lastOpenedFile, rootPath]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Open file from external request (e.g. ctrl+click in terminal)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const path = (e as CustomEvent<string>).detail;
+      if (path) openFileFromPath(path);
+    };
+    window.addEventListener("open-file", handler);
+    return () => window.removeEventListener("open-file", handler);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const openFileFromPath = async (path: string) => {
     try {

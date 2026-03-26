@@ -23,6 +23,9 @@ interface SavedSession {
   sidebarVisible: boolean;
   sidebarWidth: number;
   lastOpenedFile: string | null;
+  scmChangesHeight: number | null;
+  explorerVisible: boolean;
+  explorerWidth: number;
 }
 
 async function resolveSessionPath(): Promise<string> {
@@ -56,6 +59,9 @@ export async function saveSession(state: AppState): Promise<void> {
     sidebarVisible: state.sidebarVisible,
     sidebarWidth: state.sidebarWidth,
     lastOpenedFile: state.lastOpenedFile,
+    scmChangesHeight: state.scmChangesHeight,
+    explorerVisible: state.explorerVisible,
+    explorerWidth: state.explorerWidth,
   };
 
   try {
@@ -77,6 +83,9 @@ export interface RestoredSession {
   sidebarVisible: boolean;
   sidebarWidth: number;
   lastOpenedFile: string | null;
+  scmChangesHeight: number | null;
+  explorerVisible: boolean;
+  explorerWidth: number;
 }
 
 export async function loadSession(): Promise<RestoredSession | null> {
@@ -100,6 +109,9 @@ export async function loadSession(): Promise<RestoredSession | null> {
       sidebarVisible: session.sidebarVisible,
       sidebarWidth: session.sidebarWidth ?? 340,
       lastOpenedFile: session.lastOpenedFile ?? null,
+      scmChangesHeight: session.scmChangesHeight ?? null,
+      explorerVisible: session.explorerVisible ?? true,
+      explorerWidth: session.explorerWidth ?? 180,
     };
   } catch {
     return null;

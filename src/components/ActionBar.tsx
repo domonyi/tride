@@ -1,13 +1,33 @@
+import { useState, useEffect, useCallback } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useAppState, useAppDispatch } from "../state/context";
 
 export function ActionBar() {
   const state = useAppState();
   const dispatch = useAppDispatch();
+  const [currentBranch, setCurrentBranch] = useState("");
 
   const activeProject = state.projects.find((p) => p.id === state.activeProjectId);
   const activeTerminal = activeProject?.terminals.find(
     (t) => t.id === state.activeTerminalId
   );
+  const cwd = activeTerminal?.cwd || activeProject?.path || null;
+
+  const refreshBranch = useCallback(async () => {
+    if (!cwd) { setCurrentBranch(""); return; }
+    try {
+      const branch = await invoke<string>("git_current_branch", { cwd });
+      setCurrentBranch(branch);
+    } catch {
+      setCurrentBranch("");
+    }
+  }, [cwd]);
+
+  useEffect(() => {
+    refreshBranch();
+    const interval = setInterval(refreshBranch, 5000);
+    return () => clearInterval(interval);
+  }, [refreshBranch]);
 
   return (
     <div className="action-bar">
@@ -16,8 +36,10 @@ export function ActionBar() {
           <>
             <span className={`status-dot ${activeTerminal.status}`} />
             <span>{activeTerminal.title}</span>
-            {activeTerminal.branch && (
-              <span className="action-bar-branch">{activeTerminal.branch}</span>
+            {currentBranch && (
+              <span className="action-bar-branch">
+                <span className="scm-branch-icon">&#9741;</span> {currentBranch}
+              </span>
             )}
             {activeTerminal.filesChanged !== undefined && (
               <span className="action-bar-changes">{activeTerminal.filesChanged} files</span>
