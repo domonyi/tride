@@ -81,7 +81,7 @@ impl LspManager {
         };
 
         // Find the project's tsserver for type resolution
-        let tsserver_js = std::path::Path::new(project_root)
+        let _tsserver_js = std::path::Path::new(project_root)
             .join("node_modules/typescript/lib");
 
         let mut cmd = Command::new("node");

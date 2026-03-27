@@ -106,6 +106,74 @@ pub fn diff(cwd: &str, file_path: &str, staged: bool) -> Result<String, String> 
     run_git(cwd, &args)
 }
 
+/// A range of changed lines in the working copy, derived from a unified diff.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiffLineRange {
+    /// 1-based start line in the modified file
+    pub start_line: u32,
+    /// Number of lines in the modified file for this hunk
+    pub line_count: u32,
+    /// "added", "modified", or "deleted"
+    pub kind: String,
+}
+
+/// Parse `git diff` output for a single file into line-level change ranges.
+pub fn diff_line_ranges(cwd: &str, file_path: &str) -> Result<Vec<DiffLineRange>, String> {
+    let raw = run_git(cwd, &["diff", "-U0", "--no-color", "--", file_path])?;
+    let mut ranges = Vec::new();
+
+    for line in raw.lines() {
+        // Match hunk headers like @@ -a,b +c,d @@
+        if !line.starts_with("@@") {
+            continue;
+        }
+        // Parse the +c,d part (new-file range)
+        let plus = match line.find('+') {
+            Some(i) => &line[i + 1..],
+            None => continue,
+        };
+        let end = plus.find(' ').unwrap_or(plus.len());
+        let range_str = &plus[..end];
+        let (new_start, new_count) = if let Some(comma) = range_str.find(',') {
+            let s: u32 = range_str[..comma].parse().unwrap_or(0);
+            let c: u32 = range_str[comma + 1..].parse().unwrap_or(0);
+            (s, c)
+        } else {
+            let s: u32 = range_str.parse().unwrap_or(0);
+            (s, 1)
+        };
+
+        // Parse the -a,b part (old-file range) to determine kind
+        let minus = match line.find('-') {
+            Some(i) => &line[i + 1..],
+            None => continue,
+        };
+        let mend = minus.find(' ').unwrap_or(minus.len());
+        let mrange_str = &minus[..mend];
+        let old_count = if let Some(comma) = mrange_str.find(',') {
+            mrange_str[comma + 1..].parse::<u32>().unwrap_or(0)
+        } else {
+            1
+        };
+
+        let kind = if old_count == 0 {
+            "added"
+        } else if new_count == 0 {
+            "deleted"
+        } else {
+            "modified"
+        };
+
+        ranges.push(DiffLineRange {
+            start_line: if new_start == 0 { 1 } else { new_start },
+            line_count: new_count,
+            kind: kind.to_string(),
+        });
+    }
+
+    Ok(ranges)
+}
+
 /// Get the full file content at HEAD (for diff comparison)
 pub fn show_head(cwd: &str, file_path: &str) -> Result<String, String> {
     let spec = format!("HEAD:{}", file_path.replace('\\', "/"));
@@ -239,4 +307,18 @@ pub fn create_branch(cwd: &str, branch: &str) -> Result<String, String> {
 pub fn delete_branch(cwd: &str, branch: &str) -> Result<String, String> {
     let output = run_git(cwd, &["branch", "-d", branch])?;
     Ok(output.trim().to_string())
+}
+
+/// Discard changes for a file (restore to HEAD for tracked, clean for untracked)
+pub fn discard(cwd: &str, path: &str) -> Result<(), String> {
+    // Check if the file is untracked
+    let status_output = run_git(cwd, &["status", "--porcelain", "--", path])?;
+    let is_untracked = status_output.lines().any(|l| l.starts_with("??"));
+
+    if is_untracked {
+        run_git(cwd, &["clean", "-f", "--", path])?;
+    } else {
+        run_git(cwd, &["checkout", "HEAD", "--", path])?;
+    }
+    Ok(())
 }

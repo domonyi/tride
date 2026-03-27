@@ -242,6 +242,35 @@ fn collect_sources(base: &Path, dir: &Path, results: &mut Vec<DtsFile>) -> Resul
     Ok(())
 }
 
+/// Delete a file or directory (recursively)
+pub fn delete_entry(path: &str) -> Result<(), String> {
+    let p = Path::new(path);
+    if p.is_dir() {
+        fs::remove_dir_all(p).map_err(|e| format!("Failed to delete directory: {}", e))
+    } else {
+        fs::remove_file(p).map_err(|e| format!("Failed to delete file: {}", e))
+    }
+}
+
+/// Rename / move a file or directory
+pub fn rename_entry(old_path: &str, new_path: &str) -> Result<(), String> {
+    fs::rename(old_path, new_path).map_err(|e| format!("Failed to rename: {}", e))
+}
+
+/// Create a new empty file (creating parent dirs if needed)
+pub fn create_file(path: &str) -> Result<(), String> {
+    let p = Path::new(path);
+    if let Some(parent) = p.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create parent dirs: {}", e))?;
+    }
+    fs::write(p, "").map_err(|e| format!("Failed to create file: {}", e))
+}
+
+/// Create a new directory (creating parent dirs if needed)
+pub fn create_dir(path: &str) -> Result<(), String> {
+    fs::create_dir_all(path).map_err(|e| format!("Failed to create directory: {}", e))
+}
+
 fn collect_dts(
     root: &Path,
     dir: &Path,

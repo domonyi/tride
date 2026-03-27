@@ -96,6 +96,64 @@ async fn read_project_sources(base_dir: String) -> Result<Vec<fs::DtsFile>, Stri
         .map_err(|e| format!("Task join error: {}", e))?
 }
 
+#[tauri::command]
+fn delete_entry(path: String) -> Result<(), String> {
+    fs::delete_entry(&path)
+}
+
+#[tauri::command]
+fn rename_entry(old_path: String, new_path: String) -> Result<(), String> {
+    fs::rename_entry(&old_path, &new_path)
+}
+
+#[tauri::command]
+fn create_file(path: String) -> Result<(), String> {
+    fs::create_file(&path)
+}
+
+#[tauri::command]
+fn create_dir(path: String) -> Result<(), String> {
+    fs::create_dir(&path)
+}
+
+#[tauri::command]
+fn reveal_in_explorer(path: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        let p = std::path::Path::new(&path);
+        let arg = if p.is_dir() {
+            path.clone()
+        } else {
+            format!("/select,{}", path)
+        };
+        std::process::Command::new("explorer")
+            .arg(&arg)
+            .creation_flags(0x08000000)
+            .spawn()
+            .map_err(|e| format!("Failed to open explorer: {}", e))?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let p = std::path::Path::new(&path);
+        if p.is_dir() {
+            std::process::Command::new("open").arg(&path).spawn()
+                .map_err(|e| format!("Failed to open Finder: {}", e))?;
+        } else {
+            std::process::Command::new("open").arg("-R").arg(&path).spawn()
+                .map_err(|e| format!("Failed to open Finder: {}", e))?;
+        }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let p = std::path::Path::new(&path);
+        let dir = if p.is_dir() { &path } else { p.parent().map(|pp| pp.to_str().unwrap_or(&path)).unwrap_or(&path) };
+        std::process::Command::new("xdg-open").arg(dir).spawn()
+            .map_err(|e| format!("Failed to open file manager: {}", e))?;
+    }
+    Ok(())
+}
+
 // ── Git Commands ────────────────────────────────────────────────────────────
 // All git commands are async to avoid blocking the main thread.
 
@@ -211,6 +269,20 @@ async fn git_delete_branch(cwd: String, branch: String) -> Result<String, String
         .map_err(|e| format!("Task join error: {}", e))?
 }
 
+#[tauri::command]
+async fn git_diff_lines(cwd: String, file_path: String) -> Result<Vec<git::DiffLineRange>, String> {
+    tokio::task::spawn_blocking(move || git::diff_line_ranges(&cwd, &file_path))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[tauri::command]
+async fn git_discard(cwd: String, path: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || git::discard(&cwd, &path))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
 // ── LSP Commands ────────────────────────────────────────────────────────────
 
 #[tauri::command]
@@ -294,6 +366,11 @@ pub fn run() {
             read_dts_files,
             read_project_sources,
             read_all_node_types,
+            delete_entry,
+            rename_entry,
+            create_file,
+            create_dir,
+            reveal_in_explorer,
             git_status,
             git_diff,
             git_show_head,
@@ -310,6 +387,8 @@ pub fn run() {
             git_checkout_branch,
             git_create_branch,
             git_delete_branch,
+            git_discard,
+            git_diff_lines,
             lsp_start,
             lsp_send,
             lsp_stop,

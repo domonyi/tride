@@ -37,16 +37,21 @@ const defineTheme: BeforeMount = (monaco) => {
     inherit: true,
     rules: [],
     colors: {
-      "editor.background": "#181818",
-      "editor.foreground": "#d4d4d4",
-      "editorLineNumber.foreground": "#444444",
-      "editorLineNumber.activeForeground": "#777777",
-      "editor.selectionBackground": "#3a3a3a",
-      "editor.lineHighlightBackground": "#1e1e1e",
-      "diffEditor.insertedTextBackground": "#9ece6a22",
-      "diffEditor.removedTextBackground": "#f7768e22",
-      "diffEditor.insertedLineBackground": "#9ece6a15",
-      "diffEditor.removedLineBackground": "#f7768e15",
+      "editor.background": "#1a1b26",
+      "editor.foreground": "#a9b1d6",
+      "editorLineNumber.foreground": "#363b54",
+      "editorLineNumber.activeForeground": "#787c99",
+      "editor.selectionBackground": "#515c7e4d",
+      "editor.lineHighlightBackground": "#1e202e",
+      "diffEditor.insertedTextBackground": "#41a6b520",
+      "diffEditor.removedTextBackground": "#db4b4b22",
+      "diffEditor.insertedLineBackground": "#41a6b520",
+      "diffEditor.removedLineBackground": "#db4b4b22",
+      "diffEditorGutter.insertedLineBackground": "#41a6b525",
+      "diffEditorGutter.removedLineBackground": "#db4b4b22",
+      "scrollbarSlider.background": "#868bc415",
+      "scrollbarSlider.hoverBackground": "#868bc410",
+      "scrollbarSlider.activeBackground": "#868bc422",
     },
   });
 
@@ -322,6 +327,21 @@ export function SourceControl() {
     } catch (e) { setActionOutput(`Error: ${e}`); } finally { setLoading(false); }
   }, [cwd, newBranchName, refresh, refreshBranches]);
 
+  const discardFile = useCallback(async (path: string) => {
+    if (!cwd) return;
+    try { await invoke("git_discard", { cwd, path }); await refresh(); } catch (e) { setActionOutput(`Error: ${e}`); }
+  }, [cwd, refresh]);
+
+  const discardAll = useCallback(async () => {
+    if (!cwd) return;
+    setLoading(true);
+    try {
+      const unstaged = files.filter((f) => !f.staged);
+      await Promise.all(unstaged.map((f) => invoke("git_discard", { cwd, path: f.path })));
+      await refresh();
+    } catch (e) { setActionOutput(`Error: ${e}`); } finally { setLoading(false); }
+  }, [cwd, files, refresh]);
+
   const deleteBranch = useCallback(async (branch: string) => {
     if (!cwd) return;
     try {
@@ -427,7 +447,10 @@ export function SourceControl() {
                   <span className={`scm-accordion-arrow ${unstagedOpen ? "open" : ""}`}>&#9654;</span>
                   <span>Changes ({unstagedFiles.length})</span>
                   {unstagedFiles.length > 0 && (
-                    <button className="scm-icon-btn small" onClick={(e) => { e.stopPropagation(); stageAll(); }} title="Stage All">+</button>
+                    <>
+                      <button className="scm-icon-btn small" onClick={(e) => { e.stopPropagation(); discardAll(); }} title="Discard All">&#x21A9;</button>
+                      <button className="scm-icon-btn small" onClick={(e) => { e.stopPropagation(); stageAll(); }} title="Stage All">+</button>
+                    </>
                   )}
                 </div>
                 {unstagedOpen && (
@@ -437,6 +460,7 @@ export function SourceControl() {
                         <span className="scm-file-indicator" style={{ background: statusColor(f.status) }} />
                         <span className="scm-file-status" style={{ color: statusColor(f.status) }}>{statusIcon(f.status)}</span>
                         <span className="scm-file-path">{f.path}</span>
+                        <button className="scm-file-action" onClick={(e) => { e.stopPropagation(); discardFile(f.path); }} title="Discard Changes">&#x21A9;</button>
                         <button className="scm-file-action" onClick={(e) => { e.stopPropagation(); stageFile(f.path); }} title="Stage">+</button>
                       </div>
                     ))}
