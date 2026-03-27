@@ -6,6 +6,9 @@ import { FileTree } from "./FileTree";
 import { useAppState, useAppDispatch } from "../state/context";
 import { useLsp } from "../hooks/useLsp";
 import { ImagePreview } from "./ImagePreview";
+import { createHighlighter } from "shiki";
+import { shikiToMonaco } from "@shikijs/monaco";
+import { INITIAL } from "@shikijs/vscode-textmate";
 
 const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "bmp", "webp", "svg", "ico"]);
 
@@ -29,11 +32,11 @@ function getLanguage(path: string): string {
   const map: Record<string, string> = {
     ts: "typescript-lsp", tsx: "typescript-lsp", js: "javascript-lsp", jsx: "javascript-lsp",
     rs: "rust", py: "python", json: "json", css: "css", html: "html",
-    md: "markdown", toml: "ini", yaml: "yaml", yml: "yaml", sh: "shell",
-    bash: "shell", sql: "sql", go: "go", java: "java", cpp: "cpp",
+    md: "markdown", toml: "toml", yaml: "yaml", yml: "yaml", sh: "shellscript",
+    bash: "shellscript", sql: "sql", go: "go", java: "java", cpp: "cpp",
     cc: "cpp", cxx: "cpp", c: "c", h: "c", cs: "csharp", rb: "ruby",
     php: "php", swift: "swift", kt: "kotlin", r: "r", lua: "lua",
-    xml: "xml", svg: "xml", vue: "html", svelte: "html",
+    xml: "xml", svg: "xml", vue: "vue", svelte: "svelte",
   };
   return map[ext || ""] || "plaintext";
 }
@@ -59,133 +62,73 @@ interface OpenTab {
   modified: boolean;
 }
 
-const defineTheme: BeforeMount = (monaco) => {
-  monaco.editor.defineTheme("tride-dark", {
-    base: "vs-dark",
-    inherit: true,
-    rules: [
-      // Comments
-      { token: "comment", foreground: "565f89", fontStyle: "italic" },
-      { token: "comment.doc", foreground: "5a638c", fontStyle: "italic" },
-      // Keywords
-      { token: "keyword", foreground: "9d7cd8" },
-      { token: "keyword.import", foreground: "7dcfff" },
-      // Storage (const, let, var, function, class, type, interface, etc.)
-      { token: "storage", foreground: "bb9af7" },
-      { token: "storage.modifier", foreground: "9d7cd8", fontStyle: "italic" },
-      // Types (PascalCase identifiers)
-      { token: "type.identifier", foreground: "2ac3de" },
-      // Variables
-      { token: "identifier", foreground: "c0caf5" },
-      { token: "variable.language", foreground: "f7768e" },
-      // Strings
-      { token: "string", foreground: "9ece6a" },
-      { token: "string.escape", foreground: "89ddff" },
-      { token: "string.invalid", foreground: "ff5370" },
-      // Numbers
-      { token: "number", foreground: "ff9e64" },
-      { token: "number.float", foreground: "ff9e64" },
-      { token: "number.hex", foreground: "ff9e64" },
-      { token: "number.octal", foreground: "ff9e64" },
-      { token: "number.binary", foreground: "ff9e64" },
-      // Delimiters & operators — muted
-      { token: "delimiter", foreground: "89ddff" },
-      { token: "delimiter.bracket", foreground: "9aa5ce" },
-      { token: "", foreground: "9aa5ce" },
-      // Regexp
-      { token: "regexp", foreground: "b4f9f8" },
-      { token: "regexp.escape", foreground: "89ddff" },
-      { token: "regexp.escape.control", foreground: "89ddff" },
-      // Tags & HTML
-      { token: "tag", foreground: "f7768e" },
-      { token: "metatag", foreground: "de5971" },
-      { token: "metatag.html", foreground: "de5971" },
-      { token: "metatag.content.html", foreground: "9ece6a" },
-      { token: "attribute.name", foreground: "bb9af7" },
-      { token: "attribute.value", foreground: "9ece6a" },
+// State wrapper for TextMate tokenizer (used by shikiToMonaco internally too)
+class TokenizerState {
+  constructor(public ruleStack: any) {}
+  clone() { return new TokenizerState(this.ruleStack); }
+  equals(other: any) { return other instanceof TokenizerState && other.ruleStack === this.ruleStack; }
+}
+
+// Shiki highlighter — initialized once, shared across editor instances
+let shikiReady = false;
+async function initShiki(monaco: Monaco) {
+  if (shikiReady) return;
+  shikiReady = true;
+
+  const highlighter = await createHighlighter({
+    themes: ["tokyo-night"],
+    langs: [
+      "typescript", "tsx", "javascript", "jsx",
+      "rust", "python", "json", "css", "html",
+      "markdown", "toml", "yaml", "shellscript",
+      "sql", "go", "java", "cpp", "c",
+      "csharp", "ruby", "php", "swift", "kotlin",
+      "lua", "xml", "vue", "svelte",
     ],
-    colors: {
-      "editor.background": "#1a1b26",
-      "editor.foreground": "#a9b1d6",
-      "editorLineNumber.foreground": "#363b54",
-      "editorLineNumber.activeForeground": "#787c99",
-      "editor.selectionBackground": "#515c7e4d",
-      "editor.selectionHighlightBackground": "#515c7e44",
-      "editor.wordHighlightBackground": "#515c7e44",
-      "editor.wordHighlightStrongBackground": "#515c7e55",
-      "editor.findMatchBackground": "#3d59a166",
-      "editor.findMatchHighlightBackground": "#3d59a166",
-      "editor.findMatchBorder": "#e0af68",
-      "editor.lineHighlightBackground": "#1e202e",
-      "editor.rangeHighlightBackground": "#515c7e20",
-      "editor.foldBackground": "#1111174a",
-      "editorCursor.foreground": "#c0caf5",
-      "editorIndentGuide.background1": "#232433",
-      "editorIndentGuide.activeBackground1": "#363b54",
-      "editorWhitespace.foreground": "#363b54",
-      "editorRuler.foreground": "#101014",
-      "editorCodeLens.foreground": "#51597d",
-      "editorBracketMatch.background": "#16161e",
-      "editorBracketMatch.border": "#42465d",
-      "editorBracketHighlight.foreground1": "#698cd6",
-      "editorBracketHighlight.foreground2": "#68b3de",
-      "editorBracketHighlight.foreground3": "#9a7ecc",
-      "editorBracketHighlight.foreground4": "#25aac2",
-      "editorBracketHighlight.foreground5": "#80a856",
-      "editorBracketHighlight.foreground6": "#c49a5a",
-      "editorBracketHighlight.unexpectedBracket.foreground": "#db4b4b",
-      "editorBracketPairGuide.activeBackground1": "#698cd6",
-      "editorBracketPairGuide.activeBackground2": "#68b3de",
-      "editorBracketPairGuide.activeBackground3": "#9a7ecc",
-      "editorBracketPairGuide.activeBackground4": "#25aac2",
-      "editorBracketPairGuide.activeBackground5": "#80a856",
-      "editorBracketPairGuide.activeBackground6": "#c49a5a",
-      "editorError.foreground": "#db4b4b",
-      "editorWarning.foreground": "#e0af68",
-      "editorInfo.foreground": "#0da0ba",
-      "editorHint.foreground": "#0da0ba",
-      "editorGutter.addedBackground": "#164846",
-      "editorGutter.deletedBackground": "#823c41",
-      "editorGutter.modifiedBackground": "#394b70",
-      "editorOverviewRuler.addedForeground": "#164846",
-      "editorOverviewRuler.deletedForeground": "#703438",
-      "editorOverviewRuler.modifiedForeground": "#394b70",
-      "editorOverviewRuler.border": "#101014",
-      "editorOverviewRuler.errorForeground": "#db4b4b",
-      "editorOverviewRuler.warningForeground": "#e0af68",
-      "editorOverviewRuler.infoForeground": "#1abc9c",
-      "editorWidget.background": "#16161e",
-      "editorWidget.border": "#101014",
-      "editorSuggestWidget.background": "#16161e",
-      "editorSuggestWidget.border": "#101014",
-      "editorSuggestWidget.highlightForeground": "#6183bb",
-      "editorSuggestWidget.selectedBackground": "#20222c",
-      "editorHoverWidget.background": "#16161e",
-      "editorHoverWidget.border": "#101014",
-      "editorGhostText.foreground": "#646e9c",
-      "editorGroup.border": "#101014",
-      "input.background": "#14141b",
-      "input.border": "#0f0f14",
-      "input.foreground": "#a9b1d6",
-      "input.placeholderForeground": "#787c998a",
-      "list.activeSelectionBackground": "#202330",
-      "list.activeSelectionForeground": "#a9b1d6",
-      "list.hoverBackground": "#13131a",
-      "list.hoverForeground": "#a9b1d6",
-      "list.highlightForeground": "#668ac4",
-      "scrollbarSlider.background": "#868bc415",
-      "scrollbarSlider.hoverBackground": "#868bc410",
-      "scrollbarSlider.activeBackground": "#868bc422",
-      "diffEditor.insertedTextBackground": "#41a6b520",
-      "diffEditor.removedTextBackground": "#db4b4b22",
-      "diffEditor.insertedLineBackground": "#41a6b520",
-      "diffEditor.removedLineBackground": "#db4b4b22",
-    },
   });
 
+  // Register our custom language IDs in Monaco before wiring Shiki.
+  // These map to tsx/jsx grammars for tokenization while keeping
+  // separate IDs so only our LSP providers attach to them.
+  monaco.languages.register({ id: "typescript-lsp" });
+  monaco.languages.register({ id: "javascript-lsp" });
+
+  // Wire Shiki into Monaco — replaces tokenization with TextMate grammars
+  // and registers all loaded themes as Monaco themes.
+  shikiToMonaco(highlighter, monaco);
+
+  // shikiToMonaco only wires languages whose ID matches a loaded Shiki language.
+  // We need to also wire our custom -lsp language IDs to use the same grammars.
+  // The trick: call shikiToMonaco again after registering our aliases in the highlighter.
+  // Simpler: just get the loaded languages and get the grammar, then re-set the provider.
+  // Actually simplest: temporarily register our IDs as Shiki language aliases and re-wire.
+
+  for (const [langId, shikiLang] of [["typescript-lsp", "tsx"], ["javascript-lsp", "jsx"]] as const) {
+    const grammar = highlighter.getLanguage(shikiLang);
+    monaco.languages.setTokensProvider(langId, {
+      getInitialState() {
+        return new TokenizerState(INITIAL);
+      },
+      tokenize(line: string, state: any) {
+        if (line.length >= 20000) {
+          return { endState: state, tokens: [{ startIndex: 0, scopes: "" }] };
+        }
+        // Use Shiki's grammar to tokenize the line
+        const result = grammar.tokenizeLine(line, state.ruleStack, 500);
+        const tokens: { startIndex: number; scopes: string }[] = [];
+        for (const tok of result.tokens) {
+          // Use the most specific TextMate scope as the Monaco token scope
+          const scope = tok.scopes[tok.scopes.length - 1] || "";
+          tokens.push({ startIndex: tok.startIndex, scopes: scope });
+        }
+        return { endState: new TokenizerState(result.ruleStack), tokens };
+      },
+    } as any);
+  }
+}
+
+const defineTheme: BeforeMount = (monaco) => {
   // Disable Monaco's built-in TS worker completely — LSP handles everything.
-  // We do this by disabling all diagnostics AND setting eagarModelSync to false
-  // so the TS worker never processes our models.
   monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
     noSemanticValidation: true,
     noSyntaxValidation: true,
@@ -197,17 +140,12 @@ const defineTheme: BeforeMount = (monaco) => {
   monaco.languages.typescript.typescriptDefaults.setEagerModelSync(false);
   monaco.languages.typescript.javascriptDefaults.setEagerModelSync(false);
 
-  // Register custom language IDs that use TS/JS tokenizers but have NO built-in worker.
-  // This prevents Monaco's built-in hover/completion from firing.
-  monaco.languages.register({ id: "typescript-lsp", extensions: [".ts", ".tsx"], mimetypes: ["text/typescript"] });
-  monaco.languages.register({ id: "javascript-lsp", extensions: [".js", ".jsx"], mimetypes: ["text/javascript"] });
+  // Register custom language IDs for LSP providers
+  monaco.languages.register({ id: "typescript-lsp" });
+  monaco.languages.register({ id: "javascript-lsp" });
 
-  // Copy the tokenizer from typescript/javascript
-  const tsTokenizer = monaco.languages.getEncodedLanguageId("typescript");
-  const jsTokenizer = monaco.languages.getEncodedLanguageId("javascript");
-
-  // Set the tokenization to use the TS/JS monarch tokenizers
-  monaco.languages.setLanguageConfiguration("typescript-lsp", {
+  // Language configurations (brackets, comments, folding, etc.)
+  const tsConfig: any = {
     comments: { lineComment: "//", blockComment: ["/*", "*/"] },
     brackets: [["{", "}"], ["[", "]"], ["(", ")"], ["<", ">"]],
     autoClosingPairs: [
@@ -225,169 +163,10 @@ const defineTheme: BeforeMount = (monaco) => {
       increaseIndentPattern: /^((?!.*?\/\*).*\*\/)?\s*[\}\]].*$|^.*\{[^}"'`]*$|^.*\([^)"'`]*$|^\s*(export\s+default\s+)?function\b.*\{[^}"'`]*$/,
       decreaseIndentPattern: /^((?!.*?\/\*).*\*\/)?\s*[\}\]].*$/,
     },
-  });
-  monaco.languages.setLanguageConfiguration("javascript-lsp", {
-    comments: { lineComment: "//", blockComment: ["/*", "*/"] },
-    brackets: [["{", "}"], ["[", "]"], ["(", ")"], ["<", ">"]],
-    autoClosingPairs: [
-      { open: "{", close: "}" }, { open: "[", close: "]" },
-      { open: "(", close: ")" }, { open: "'", close: "'", notIn: ["string", "comment"] },
-      { open: '"', close: '"', notIn: ["string"] }, { open: "`", close: "`", notIn: ["string", "comment"] },
-    ],
-    surroundingPairs: [
-      { open: "{", close: "}" }, { open: "[", close: "]" },
-      { open: "(", close: ")" }, { open: "<", close: ">" },
-      { open: "'", close: "'" }, { open: '"', close: '"' }, { open: "`", close: "`" },
-    ],
-    folding: { markers: { start: /^\s*\/\/\s*#?region\b/, end: /^\s*\/\/\s*#?endregion\b/ } },
-  });
-
-  // Use the TypeScript monarch tokenizer for syntax highlighting on our custom languages
-  monaco.languages.setMonarchTokensProvider("typescript-lsp", (monaco.languages as any).typescript?.monarchLanguage ||
-    getTypescriptMonarchTokens());
-  monaco.languages.setMonarchTokensProvider("javascript-lsp", (monaco.languages as any).javascript?.monarchLanguage ||
-    getTypescriptMonarchTokens());
-};
-
-/** Fallback TypeScript monarch tokenizer for syntax highlighting */
-function getTypescriptMonarchTokens(): any {
-  return {
-    defaultToken: "",
-    tokenPostfix: ".ts",
-    keywords: [
-      "abstract", "any", "as", "asserts", "async", "await", "bigint", "boolean", "break",
-      "case", "catch", "class", "const", "continue", "debugger", "declare",
-      "delete", "do", "else", "enum", "extends", "false", "finally", "for",
-      "function", "get", "if", "implements", "in", "infer", "instanceof",
-      "interface", "is", "keyof", "let", "module", "namespace", "never", "new", "null",
-      "number", "object", "of", "override", "package", "private", "protected", "public",
-      "readonly", "return", "satisfies", "set", "static", "string", "super", "switch",
-      "symbol", "throw", "true", "try", "type", "typeof", "undefined", "unique",
-      "unknown", "var", "void", "while", "with", "yield",
-    ],
-    keywordsImport: [
-      "import", "export", "from", "default",
-    ],
-    keywordsThis: [
-      "this",
-    ],
-    keywordsStorage: [
-      "const", "let", "var", "function", "class", "interface", "type", "enum", "namespace", "module",
-    ],
-    keywordsModifier: [
-      "async", "await", "static", "abstract", "override", "readonly", "declare",
-      "private", "protected", "public", "get", "set",
-    ],
-    operators: [
-      "<=", ">=", "==", "!=", "===", "!==", "=>", "+", "-", "**",
-      "*", "/", "%", "++", "--", "<<", "</", ">>", ">>>", "&",
-      "|", "^", "!", "~", "&&", "||", "??", "?", ":", "=",
-      "+=", "-=", "*=", "**=", "/=", "%=", "<<=", ">>=", ">>>=",
-      "&=", "|=", "^=", "@",
-    ],
-    symbols: /[=><!~?:&|+\-*\/\^%]+/,
-    escapes: /\\(?:[abfnrtv\\"']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})/,
-    digits: /\d+(_+\d+)*/,
-    octaldigits: /[0-7]+(_+[0-7]+)*/,
-    binarydigits: /[0-1]+(_+[0-1]+)*/,
-    hexdigits: /[[0-9a-fA-F]+(_+[0-9a-fA-F]+)*/,
-    regexpctl: /[(){}\[\]\$\^|\-*+?\.]/,
-    regexpesc: /\\(?:[bBdDfnrstvwWn0\\\/]|@regexpctl|c[A-Z]|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4})/,
-    tokenizer: {
-      root: [
-        [/[{}]/, "delimiter.bracket"],
-        { include: "common" },
-      ],
-      common: [
-        [/[a-z_$][\w$]*/, { cases: {
-          "@keywordsImport": "keyword.import",
-          "@keywordsThis": "variable.language",
-          "@keywordsStorage": "storage",
-          "@keywordsModifier": "storage.modifier",
-          "@keywords": "keyword",
-          "@default": "identifier",
-        } }],
-        [/[A-Z][\w\$]*/, "type.identifier"],
-        { include: "@whitespace" },
-        [/\/(?=([^\\\/]|\\.)+\/([dgimsuy]*)(\s*)(\.|;|,|\)|\]|\}|$))/, { token: "regexp", bracket: "@open", next: "@regexp" }],
-        [/[()\[\]]/, "@brackets"],
-        [/[<>](?!@symbols)/, "@brackets"],
-        [/!(?=([^=]|$))/, "delimiter"],
-        [/@symbols/, { cases: { "@operators": "delimiter", "@default": "" } }],
-        [/(@digits)[eE]([\-+]?(@digits))?/, "number.float"],
-        [/(@digits)\.(@digits)([eE][\-+]?(@digits))?/, "number.float"],
-        [/0[xX](@hexdigits)n?/, "number.hex"],
-        [/0[oO]?(@octaldigits)n?/, "number.octal"],
-        [/0[bB](@binarydigits)n?/, "number.binary"],
-        [/(@digits)n?/, "number"],
-        [/[;,.]/, "delimiter"],
-        [/"([^"\\]|\\.)*$/, "string.invalid"],
-        [/'([^'\\]|\\.)*$/, "string.invalid"],
-        [/"/, "string", "@string_double"],
-        [/'/, "string", "@string_single"],
-        [/`/, "string", "@string_backtick"],
-      ],
-      whitespace: [
-        [/[ \t\r\n]+/, ""],
-        [/\/\*\*(?!\/)/, "comment.doc", "@jsdoc"],
-        [/\/\*/, "comment", "@comment"],
-        [/\/\/.*$/, "comment"],
-      ],
-      comment: [
-        [/[^\/*]+/, "comment"],
-        [/\*\//, "comment", "@pop"],
-        [/[\/*]/, "comment"],
-      ],
-      jsdoc: [
-        [/[^\/*]+/, "comment.doc"],
-        [/\*\//, "comment.doc", "@pop"],
-        [/[\/*]/, "comment.doc"],
-      ],
-      regexp: [
-        [/(\{)(\d+(?:,\d*)?)(\})/, ["regexp.escape.control", "regexp.escape.control", "regexp.escape.control"]],
-        [/(\[)(\^?)(?=(?:[^\]\\\/]|\\.)+)/, ["regexp.escape.control", { token: "regexp.escape.control", next: "@regexrange" }]],
-        [/(\()(\?:|\?=|\?!)/, ["regexp.escape.control", "regexp.escape.control"]],
-        [/[()]/, "regexp.escape.control"],
-        [/@regexpctl/, "regexp.escape.control"],
-        [/[^\\\/]/, "regexp"],
-        [/@regexpesc/, "regexp.escape"],
-        [/\\\./, "regexp.invalid"],
-        [/(\/)([dgimsuy]*)/, [{ token: "regexp", bracket: "@close", next: "@pop" }, "keyword.other"]],
-      ],
-      regexrange: [
-        [/-/, "regexp.escape.control"],
-        [/\^/, "regexp.invalid"],
-        [/@regexpesc/, "regexp.escape"],
-        [/[^\]]/, "regexp"],
-        [/\]/, { token: "regexp.escape.control", next: "@pop", bracket: "@close" }],
-      ],
-      string_double: [
-        [/[^\\"]+/, "string"],
-        [/@escapes/, "string.escape"],
-        [/\\./, "string.escape.invalid"],
-        [/"/, "string", "@pop"],
-      ],
-      string_single: [
-        [/[^\\']+/, "string"],
-        [/@escapes/, "string.escape"],
-        [/\\./, "string.escape.invalid"],
-        [/'/, "string", "@pop"],
-      ],
-      string_backtick: [
-        [/\$\{/, { token: "delimiter.bracket", next: "@bracketCounting" }],
-        [/[^\\`$]+/, "string"],
-        [/@escapes/, "string.escape"],
-        [/\\./, "string.escape.invalid"],
-        [/`/, "string", "@pop"],
-      ],
-      bracketCounting: [
-        [/\{/, "delimiter.bracket", "@bracketCounting"],
-        [/\}/, "delimiter.bracket", "@pop"],
-        { include: "common" },
-      ],
-    },
   };
-}
+  monaco.languages.setLanguageConfiguration("typescript-lsp", tsConfig);
+  monaco.languages.setLanguageConfiguration("javascript-lsp", tsConfig);
+};
 
 export function CodeEditor() {
   const state = useAppState();
@@ -566,6 +345,10 @@ export function CodeEditor() {
     editorRef.current = editor;
     setMonacoInstance(monaco);
     editor.addCommand(2048 | 49, () => saveFile()); // Ctrl+S
+    // Initialize Shiki TextMate grammars and set the theme
+    initShiki(monaco).then(() => {
+      monaco.editor.setTheme("tokyo-night");
+    });
   };
 
   useEffect(() => {
@@ -619,7 +402,7 @@ export function CodeEditor() {
             language={getLanguage(currentTab.path)}
             path={fileToUri(currentTab.path)}
             value={currentTab.content}
-            theme="tride-dark"
+            theme="tokyo-night"
             onChange={(value) => {
               setTabs((prev) =>
                 prev.map((t) => t.path === currentTab.path ? { ...t, modified: t.content !== value } : t)

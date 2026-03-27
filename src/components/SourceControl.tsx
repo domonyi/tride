@@ -589,7 +589,7 @@ export function SourceControl() {
                   language={getLanguage(diffTarget.file)}
                   original={originalContent}
                   modified={modifiedContent}
-                  theme="tride-dark"
+                  theme="tokyo-night"
                   beforeMount={defineTheme}
                   loading={<div className="code-editor-loading">Loading...</div>}
                   options={{
