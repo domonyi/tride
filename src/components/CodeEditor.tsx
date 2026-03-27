@@ -60,7 +60,7 @@ interface OpenTab {
 }
 
 const defineTheme: BeforeMount = (monaco) => {
-  monaco.editor.defineTheme("aiterminal-dark", {
+  monaco.editor.defineTheme("tride-dark", {
     base: "vs-dark",
     inherit: true,
     rules: [
@@ -333,7 +333,7 @@ export function CodeEditor() {
     const startWidth = treeRef.current?.offsetWidth ?? explorerWidth;
 
     const overlay = document.createElement("div");
-    overlay.style.cssText = "position:fixed;inset:0;z-index:9999;cursor:col-resize;";
+    overlay.style.cssText = "position:fixed;inset:0;z-index:9999;cursor:ew-resize;";
     document.body.appendChild(overlay);
 
     const onMouseMove = (ev: MouseEvent) => {
@@ -354,7 +354,7 @@ export function CodeEditor() {
       }
     };
 
-    document.body.style.cursor = "col-resize";
+    document.body.style.cursor = "ew-resize";
     document.body.style.userSelect = "none";
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", onMouseUp);
@@ -539,7 +539,7 @@ export function CodeEditor() {
             language={getLanguage(currentTab.path)}
             path={fileToUri(currentTab.path)}
             value={currentTab.content}
-            theme="aiterminal-dark"
+            theme="tride-dark"
             onChange={(value) => {
               setTabs((prev) =>
                 prev.map((t) => t.path === currentTab.path ? { ...t, modified: t.content !== value } : t)

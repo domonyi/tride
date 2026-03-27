@@ -1,6 +1,6 @@
 {
   "identifier": "default",
-  "description": "Default capabilities for AiTerminal",
+  "description": "Default capabilities for Tride",
   "windows": ["main"],
   "permissions": [
     "core:default",

@@ -238,7 +238,7 @@ fn lsp_stop(state: State<AppState>, id: String) -> Result<(), String> {
 
 #[tauri::command]
 async fn save_clipboard_image(data: Vec<u8>, extension: String) -> Result<String, String> {
-    let temp_dir = std::env::temp_dir().join("aiterminal-images");
+    let temp_dir = std::env::temp_dir().join("tride-images");
     std::fs::create_dir_all(&temp_dir)
         .map_err(|e| format!("Failed to create temp dir: {}", e))?;
 

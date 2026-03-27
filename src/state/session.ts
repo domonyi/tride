@@ -33,9 +33,9 @@ interface SavedSession {
 async function resolveSessionPath(): Promise<string> {
   try {
     const home = await invoke<string>("get_home_dir");
-    return `${home}/.aiterminal-session.json`;
+    return `${home}/.tride-session.json`;
   } catch {
-    return "C:\\Users\\zdomonyi\\.aiterminal-session.json";
+    return "C:\\Users\\zdomonyi\\.tride-session.json";
   }
 }
 

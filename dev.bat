@@ -1,13 +1,13 @@
 @echo off
 set PATH=C:\msys64\mingw64\bin;%USERPROFILE%\.cargo\bin;%PATH%
-cd /d C:\DEV\AiTerminal
+cd /d C:\DEV\Tride
 
 if not exist "node_modules" (
-    echo [AiTerminal] Installing dependencies...
+    echo [Tride] Installing dependencies...
     call npm install || goto :fail
 )
 
-echo [AiTerminal] Starting dev mode...
+echo [Tride] Starting dev mode...
 call npx tauri dev
 exit /b 0
 

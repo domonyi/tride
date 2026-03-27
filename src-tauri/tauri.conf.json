@@ -1,8 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicmcphee/vscode-oss/main/core/tauri/schema.json",
-  "productName": "AiTerminal",
+  "productName": "Tride",
   "version": "0.1.0",
-  "identifier": "com.aiterminal.app",
+  "identifier": "com.tride.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "AI Terminal",
+        "title": "Tride",
         "width": 1400,
         "height": 900,
         "minWidth": 800,
@@ -27,5 +27,8 @@
     "security": {
       "csp": null
     }
+  },
+  "bundle": {
+    "icon": ["icons/icon.ico"]
   }
 }

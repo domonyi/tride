@@ -1,18 +1,18 @@
 @echo off
 set PATH=C:\msys64\mingw64\bin;%USERPROFILE%\.cargo\bin;%PATH%
-cd /d C:\DEV\AiTerminal
+cd /d C:\DEV\Tride
 
 if not exist "node_modules" (
-    echo [AiTerminal] Installing dependencies...
+    echo [Tride] Installing dependencies...
     call npm install || goto :fail
 )
 
-echo [AiTerminal] Building...
+echo [Tride] Building...
 call npx tauri build 2>&1 | findstr /C:"Built application" /C:"error"
 
 echo.
-echo Starting AiTerminal...
-start "" "src-tauri\target\release\ai-terminal.exe"
+echo Starting Tride...
+start "" "src-tauri\target\release\tride.exe"
 exit /b 0
 
 :fail

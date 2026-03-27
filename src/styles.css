@@ -420,7 +420,7 @@ input, textarea, .xterm, .monaco-editor {
 
 .sidebar-resize-handle {
   width: 4px;
-  cursor: col-resize;
+  cursor: ew-resize;
   background: transparent;
   flex-shrink: 0;
   transition: background 0.15s;
@@ -498,7 +498,7 @@ input, textarea, .xterm, .monaco-editor {
 .code-editor-tree-resize {
   width: 4px;
   flex-shrink: 0;
-  cursor: col-resize;
+  cursor: ew-resize;
   background: transparent;
   border-right: 1px solid var(--border);
   transition: background 0.15s;

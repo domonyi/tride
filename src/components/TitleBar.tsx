@@ -40,7 +40,7 @@ export function TitleBar() {
       onMouseDown={onDragStart}
       onDoubleClick={onDoubleClick}
     >
-      <span className="title-bar-label">AI Terminal</span>
+      <span className="title-bar-label">Tride</span>
       <div className="title-bar-controls">
         <button className="title-btn minimize" onClick={() => appWindow.minimize()}>
           <MinimizeIcon />

@@ -23,7 +23,7 @@ export function Sidebar() {
     const startWidth = sidebarRef.current?.offsetWidth ?? state.sidebarWidth;
 
     const overlay = document.createElement("div");
-    overlay.style.cssText = "position:fixed;inset:0;z-index:9999;cursor:col-resize;";
+    overlay.style.cssText = "position:fixed;inset:0;z-index:9999;cursor:ew-resize;";
     document.body.appendChild(overlay);
 
     const onMouseMove = (e: MouseEvent) => {
@@ -45,7 +45,7 @@ export function Sidebar() {
       }
     };
 
-    document.body.style.cursor = "col-resize";
+    document.body.style.cursor = "ew-resize";
     document.body.style.userSelect = "none";
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", onMouseUp);

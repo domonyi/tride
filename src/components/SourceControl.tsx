@@ -32,7 +32,7 @@ type DiffTarget =
   | { kind: "commit"; hash: string; file: string };
 
 const defineTheme: BeforeMount = (monaco) => {
-  monaco.editor.defineTheme("aiterminal-dark", {
+  monaco.editor.defineTheme("tride-dark", {
     base: "vs-dark",
     inherit: true,
     rules: [],
@@ -565,7 +565,7 @@ export function SourceControl() {
                   language={getLanguage(diffTarget.file)}
                   original={originalContent}
                   modified={modifiedContent}
-                  theme="aiterminal-dark"
+                  theme="tride-dark"
                   beforeMount={defineTheme}
                   loading={<div className="code-editor-loading">Loading...</div>}
                   options={{

@@ -1,6 +1,6 @@
 import type { AppState, GridLayout, SidebarMode } from "../types";
 
-const KEY = "aiterminal-layout";
+const KEY = "tride-layout";
 
 /**
  * Tier 1 state — layout-critical values read synchronously on startup.
