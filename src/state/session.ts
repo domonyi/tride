@@ -24,11 +24,12 @@ interface SavedSession {
   sidebarVisible: boolean;
   sidebarWidth: number;
   lastOpenedFile: string | null;
+  openedFiles?: string[];
   scmChangesHeight: number | null;
   explorerVisible: boolean;
   explorerWidth: number;
   lastBrowserUrl: string | null;
-  commitMessage: string;
+  commitMessages: Record<string, string>;
 }
 
 async function resolveSessionPath(): Promise<string> {
@@ -62,11 +63,12 @@ export async function saveSession(state: AppState): Promise<void> {
     sidebarVisible: state.sidebarVisible,
     sidebarWidth: state.sidebarWidth,
     lastOpenedFile: state.lastOpenedFile,
+    openedFiles: state.openedFiles,
     scmChangesHeight: state.scmChangesHeight,
     explorerVisible: state.explorerVisible,
     explorerWidth: state.explorerWidth,
     lastBrowserUrl: state.lastBrowserUrl,
-    commitMessage: state.commitMessage,
+    commitMessages: state.commitMessages,
   };
 
   try {
@@ -88,11 +90,12 @@ export interface RestoredSession {
   sidebarVisible: boolean;
   sidebarWidth: number;
   lastOpenedFile: string | null;
+  openedFiles: string[];
   scmChangesHeight: number | null;
   explorerVisible: boolean;
   explorerWidth: number;
   lastBrowserUrl: string | null;
-  commitMessage: string;
+  commitMessages: Record<string, string>;
 }
 
 export async function loadSession(): Promise<RestoredSession | null> {
@@ -116,11 +119,12 @@ export async function loadSession(): Promise<RestoredSession | null> {
       sidebarVisible: session.sidebarVisible,
       sidebarWidth: session.sidebarWidth ?? 340,
       lastOpenedFile: session.lastOpenedFile ?? null,
+      openedFiles: session.openedFiles ?? (session.lastOpenedFile ? [session.lastOpenedFile] : []),
       scmChangesHeight: session.scmChangesHeight ?? null,
       explorerVisible: session.explorerVisible ?? true,
       explorerWidth: session.explorerWidth ?? 180,
       lastBrowserUrl: session.lastBrowserUrl ?? null,
-      commitMessage: session.commitMessage ?? "",
+      commitMessages: (session as any).commitMessages ?? {},
     };
   } catch {
     return null;

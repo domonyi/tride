@@ -133,10 +133,11 @@ export function SourceControl() {
   const [commits, setCommits] = useState<GitCommitInfo[]>([]);
   const [branches, setBranches] = useState<GitBranchInfo[]>([]);
   const [currentBranch, setCurrentBranch] = useState("");
-  const commitMsg = state.commitMessage;
+  const projectId = state.activeProjectId ?? "";
+  const commitMsg = state.commitMessages[projectId] ?? "";
   const setCommitMsg = useCallback((msg: string) => {
-    dispatch({ type: "SET_COMMIT_MESSAGE", message: msg });
-  }, [dispatch]);
+    dispatch({ type: "SET_COMMIT_MESSAGE", projectId, message: msg });
+  }, [dispatch, projectId]);
   const [actionOutput, setActionOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -149,6 +150,8 @@ export function SourceControl() {
   const [newBranchName, setNewBranchName] = useState("");
   const [showNewBranch, setShowNewBranch] = useState(false);
   const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
+  const [commitDropdownOpen, setCommitDropdownOpen] = useState(false);
+  const commitDropdownRef = useRef<HTMLDivElement>(null);
   const [stagedOpen, setStagedOpen] = useState(true);
   const [unstagedOpen, setUnstagedOpen] = useState(true);
   const changesHeight = state.scmChangesHeight;
@@ -200,6 +203,18 @@ export function SourceControl() {
     if (view === "history") refreshHistory();
     if (view === "branches") refreshBranches();
   }, [isVisible, cwd, view]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Close commit dropdown on outside click
+  useEffect(() => {
+    if (!commitDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (commitDropdownRef.current && !commitDropdownRef.current.contains(e.target as Node)) {
+        setCommitDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [commitDropdownOpen]);
 
   // Poll for changes while the changes tab is visible
   useEffect(() => {
@@ -301,6 +316,29 @@ export function SourceControl() {
       await refresh();
     } catch (e) { setActionOutput(`Error: ${e}`); } finally { setLoading(false); }
   }, [cwd, commitMsg, refresh]);
+
+  const doCommitAndPush = useCallback(async () => {
+    if (!cwd || !commitMsg.trim()) return;
+    setLoading(true);
+    try {
+      // If nothing is staged, stage everything
+      const staged = files.filter((f) => f.staged);
+      if (staged.length === 0) {
+        await invoke("git_stage", { cwd, path: "." });
+      }
+      const result = await invoke<string>("git_commit", { cwd, message: commitMsg.trim() });
+      setActionOutput(result);
+      setCommitMsg("");
+      await refresh();
+      // Push
+      try {
+        const pushResult = await invoke<string>("git_push", { cwd });
+        setActionOutput(pushResult || "Committed & pushed successfully");
+      } catch (e) {
+        setActionOutput(`Committed, but push failed: ${e}`);
+      }
+    } catch (e) { setActionOutput(`Error: ${e}`); } finally { setLoading(false); }
+  }, [cwd, commitMsg, files, refresh]);
 
   const doPush = useCallback(async () => {
     if (!cwd) return;
@@ -490,12 +528,28 @@ export function SourceControl() {
                 onKeyDown={(e) => { if (e.ctrlKey && e.key === "Enter") doCommit(); }}
               />
               <div className="scm-commit-actions">
-                <button className="scm-commit-btn" onClick={doCommit} disabled={loading || !commitMsg.trim()}>
-                  Commit
-                </button>
-                <button className="scm-push-btn" onClick={doPush} disabled={loading}>
-                  Push
-                </button>
+                <div className="scm-commit-split" ref={commitDropdownRef}>
+                  <button className="scm-commit-btn" onClick={doCommitAndPush} disabled={loading || !commitMsg.trim()}>
+                    Commit & Push
+                  </button>
+                  <button
+                    className="scm-commit-dropdown-toggle"
+                    onClick={() => setCommitDropdownOpen((v) => !v)}
+                    disabled={loading}
+                  >
+                    &#9660;
+                  </button>
+                  {commitDropdownOpen && (
+                    <div className="scm-commit-dropdown">
+                      <button onClick={() => { setCommitDropdownOpen(false); doCommit(); }} disabled={!commitMsg.trim()}>
+                        Commit
+                      </button>
+                      <button onClick={() => { setCommitDropdownOpen(false); doPush(); }}>
+                        Push
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </>

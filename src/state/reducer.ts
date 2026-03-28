@@ -12,11 +12,12 @@ export const initialState: AppState = {
   sidebarVisible: cached.sidebarVisible ?? true,
   sidebarWidth: cached.sidebarWidth ?? 340,
   lastOpenedFile: null,
+  openedFiles: [],
   explorerVisible: cached.explorerVisible ?? true,
   explorerWidth: cached.explorerWidth ?? 180,
   scmChangesHeight: null,
   lastBrowserUrl: null,
-  commitMessage: "",
+  commitMessages: {},
   editorTheme: cached.editorTheme ?? "tokyo-night",
   defaultLlm: cached.defaultLlm ?? "none",
   customLlmCommand: cached.customLlmCommand ?? "",
@@ -35,9 +36,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "REMOVE_PROJECT": {
       const remaining = state.projects.filter((p) => p.id !== action.projectId);
+      const { [action.projectId]: _, ...remainingMessages } = state.commitMessages;
       return {
         ...state,
         projects: remaining,
+        commitMessages: remainingMessages,
         activeProjectId:
           state.activeProjectId === action.projectId
             ? remaining[0]?.id ?? null
@@ -108,6 +111,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "SET_LAST_OPENED_FILE":
       return { ...state, lastOpenedFile: action.path };
 
+    case "SET_OPENED_FILES":
+      return { ...state, openedFiles: action.files };
+
     case "TOGGLE_EXPLORER":
       return { ...state, explorerVisible: !state.explorerVisible };
 
@@ -121,7 +127,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, lastBrowserUrl: action.url };
 
     case "SET_COMMIT_MESSAGE":
-      return { ...state, commitMessage: action.message };
+      return { ...state, commitMessages: { ...state.commitMessages, [action.projectId]: action.message } };
 
     case "SET_EDITOR_THEME":
       return { ...state, editorTheme: action.theme };
@@ -134,6 +140,26 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "SET_DEFAULT_SHELL":
       return { ...state, defaultShell: action.shell };
+
+    case "REORDER_PROJECTS": {
+      const projects = [...state.projects];
+      const [moved] = projects.splice(action.fromIndex, 1);
+      projects.splice(action.toIndex, 0, moved);
+      return { ...state, projects };
+    }
+
+    case "REORDER_TERMINALS": {
+      return {
+        ...state,
+        projects: state.projects.map((p) => {
+          if (p.id !== action.projectId) return p;
+          const terminals = [...p.terminals];
+          const [moved] = terminals.splice(action.fromIndex, 1);
+          terminals.splice(action.toIndex, 0, moved);
+          return { ...p, terminals };
+        }),
+      };
+    }
 
     case "RESTORE_SESSION":
       return { ...state, ...action.state };

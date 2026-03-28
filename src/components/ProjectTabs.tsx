@@ -1,9 +1,17 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { useAppState, useAppDispatch } from "../state/context";
+import { useTabDrag } from "../hooks/useTabDrag";
 
 export function ProjectTabs() {
   const state = useAppState();
   const dispatch = useAppDispatch();
+
+  const { containerRef, handlePointerDown, handlePointerMove, handlePointerUp } = useTabDrag({
+    tabSelector: ".project-tab:not(.add-tab)",
+    onReorder: (fromIndex, toIndex) => {
+      dispatch({ type: "REORDER_PROJECTS", fromIndex, toIndex });
+    },
+  });
 
   const addProject = async () => {
     const selected = await open({
@@ -14,7 +22,6 @@ export function ProjectTabs() {
 
     if (!selected) return;
 
-    // Use the folder name as the project name
     const path = selected as string;
     const name = path.split(/[/\\]/).filter(Boolean).pop() || "Project";
 
@@ -30,13 +37,16 @@ export function ProjectTabs() {
   };
 
   return (
-    <div className="project-tabs">
-      {state.projects.map((project) => (
+    <div className="project-tabs" ref={containerRef}>
+      {state.projects.map((project, i) => (
         <div
           key={project.id}
           className={`project-tab ${state.activeProjectId === project.id ? "active" : ""}`}
           onClick={() => dispatch({ type: "SET_ACTIVE_PROJECT", projectId: project.id })}
           title={project.path}
+          onPointerDown={(e) => handlePointerDown(e, i)}
+          onPointerMove={(e) => handlePointerMove(e, i)}
+          onPointerUp={(e) => handlePointerUp(e, i)}
         >
           <span>{project.name}</span>
           <span

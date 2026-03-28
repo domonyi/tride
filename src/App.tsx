@@ -51,8 +51,9 @@ function AppContent() {
           state: {
             activeTerminalId: session.activeTerminalId,
             lastOpenedFile: session.lastOpenedFile,
+            openedFiles: session.openedFiles,
             lastBrowserUrl: session.lastBrowserUrl,
-            commitMessage: session.commitMessage,
+            commitMessages: session.commitMessages,
             scmChangesHeight: session.scmChangesHeight,
           },
         });

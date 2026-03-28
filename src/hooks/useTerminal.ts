@@ -32,13 +32,14 @@ export function useTerminal({ ptyId, onLinkClick }: UseTerminalOptions) {
     if (!containerRef.current) return;
 
     const xterm = new XTerm({
-      cursorBlink: true,
+      cursorBlink: false,
+      cursorInactiveStyle: "none",
       fontSize: 13,
       fontFamily: "'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, monospace",
       theme: {
         background: "#181818",
         foreground: "#d4d4d4",
-        cursor: "#d4d4d4",
+        cursor: "transparent",
         selectionBackground: "#3a3a3a",
         black: "#111111",
         red: "#f7768e",
@@ -203,24 +204,12 @@ export function useTerminal({ ptyId, onLinkClick }: UseTerminalOptions) {
     });
 
     // PTY output -> write to xterm (event-based, no polling)
-    // Suppress cursor blink during rapid output to prevent flickering
     let unlistenData: UnlistenFn | null = null;
     let unlistenExit: UnlistenFn | null = null;
-    let blinkTimer: ReturnType<typeof setTimeout> | null = null;
 
     const setupListeners = async () => {
       unlistenData = await listen<PtyDataEvent>("pty-data", (event) => {
         if (event.payload.id === ptyId && xtermRef.current) {
-          // Hide cursor during burst output
-          if (xtermRef.current.options.cursorBlink) {
-            xtermRef.current.options.cursorBlink = false;
-          }
-          if (blinkTimer) clearTimeout(blinkTimer);
-          blinkTimer = setTimeout(() => {
-            if (xtermRef.current) {
-              xtermRef.current.options.cursorBlink = true;
-            }
-          }, 150);
           xtermRef.current.write(new Uint8Array(event.payload.data));
         }
       });
@@ -238,7 +227,6 @@ export function useTerminal({ ptyId, onLinkClick }: UseTerminalOptions) {
       inputDisposable.dispose();
       unlistenData?.();
       unlistenExit?.();
-      if (blinkTimer) clearTimeout(blinkTimer);
     };
   }, [ptyId]);
 

@@ -35,11 +35,12 @@ export interface AppState {
   sidebarVisible: boolean;
   sidebarWidth: number;
   lastOpenedFile: string | null;
+  openedFiles: string[];
   explorerVisible: boolean;
   explorerWidth: number;
   scmChangesHeight: number | null;
   lastBrowserUrl: string | null;
-  commitMessage: string;
+  commitMessages: Record<string, string>;
   editorTheme: string;
   defaultLlm: DefaultLlm;
   customLlmCommand: string;
@@ -59,13 +60,16 @@ export type AppAction =
   | { type: "TOGGLE_SIDEBAR" }
   | { type: "SET_SIDEBAR_WIDTH"; width: number }
   | { type: "SET_LAST_OPENED_FILE"; path: string | null }
+  | { type: "SET_OPENED_FILES"; files: string[] }
   | { type: "TOGGLE_EXPLORER" }
   | { type: "SET_EXPLORER_WIDTH"; width: number }
   | { type: "SET_SCM_CHANGES_HEIGHT"; height: number | null }
   | { type: "SET_LAST_BROWSER_URL"; url: string | null }
-  | { type: "SET_COMMIT_MESSAGE"; message: string }
+  | { type: "SET_COMMIT_MESSAGE"; projectId: string; message: string }
   | { type: "SET_EDITOR_THEME"; theme: string }
   | { type: "SET_DEFAULT_LLM"; llm: DefaultLlm }
   | { type: "SET_CUSTOM_LLM_COMMAND"; command: string }
   | { type: "SET_DEFAULT_SHELL"; shell: DefaultShell }
+  | { type: "REORDER_PROJECTS"; fromIndex: number; toIndex: number }
+  | { type: "REORDER_TERMINALS"; projectId: string; fromIndex: number; toIndex: number }
   | { type: "RESTORE_SESSION"; state: Partial<AppState> };

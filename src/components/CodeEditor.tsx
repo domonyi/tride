@@ -256,21 +256,35 @@ export function CodeEditor() {
 
   const currentTab = tabs.find((t) => t.path === activeTab);
 
-  // Save active file to state
+  // Save active file and all open tabs to state
   useEffect(() => {
     if (activeTab !== null) {
       dispatch({ type: "SET_LAST_OPENED_FILE", path: activeTab });
     }
   }, [activeTab, dispatch]);
 
-  // Restore last opened file on initial load
   useEffect(() => {
-    if (!restoredRef.current && state.lastOpenedFile && rootPath) {
+    dispatch({ type: "SET_OPENED_FILES", files: tabs.map((t) => t.path) });
+  }, [tabs, dispatch]);
+
+  // Restore all opened files on initial load
+  useEffect(() => {
+    if (!restoredRef.current && rootPath) {
+      const filesToOpen = state.openedFiles.length > 0 ? state.openedFiles : (state.lastOpenedFile ? [state.lastOpenedFile] : []);
+      if (filesToOpen.length === 0) return;
       restoredRef.current = true;
-      const timer = setTimeout(() => openFileFromPath(state.lastOpenedFile!), 100);
+      const timer = setTimeout(async () => {
+        for (const file of filesToOpen) {
+          await openFileFromPath(file);
+        }
+        // Set the active tab to lastOpenedFile (the one that was active when session was saved)
+        if (state.lastOpenedFile && filesToOpen.includes(state.lastOpenedFile)) {
+          setActiveTab(state.lastOpenedFile);
+        }
+      }, 100);
       return () => clearTimeout(timer);
     }
-  }, [state.lastOpenedFile, rootPath]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [state.openedFiles, state.lastOpenedFile, rootPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep a ref to openFileFromPath so the event listener always uses the latest
   const openFileRef = useRef<(path: string) => void>(() => {});

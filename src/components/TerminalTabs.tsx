@@ -1,4 +1,5 @@
 import { useAppState, useAppDispatch } from "../state/context";
+import { useTabDrag } from "../hooks/useTabDrag";
 import { invoke } from "@tauri-apps/api/core";
 import { getLlmCommand } from "../utils/llmCommand";
 
@@ -7,10 +8,20 @@ export function TerminalTabs() {
   const dispatch = useAppDispatch();
 
   const activeProject = state.projects.find((p) => p.id === state.activeProjectId);
+
+  const { containerRef, handlePointerDown, handlePointerMove, handlePointerUp } = useTabDrag({
+    tabSelector: ".terminal-tab:not(.add-tab)",
+    onReorder: (fromIndex, toIndex) => {
+      if (activeProject) {
+        dispatch({ type: "REORDER_TERMINALS", projectId: activeProject.id, fromIndex, toIndex });
+      }
+    },
+  });
+
   if (!activeProject) return null;
 
   const addTerminal = async (mode: "instance" | "worktree") => {
-    const title = `Terminal ${activeProject.terminals.length + 1}`;
+    const title = "Terminal";
     const termId = crypto.randomUUID();
 
     const shellMap: Record<string, string> = {
@@ -29,11 +40,9 @@ export function TerminalTabs() {
         shell: shellMap[state.defaultShell] ?? null,
       });
 
-      // Auto-run LLM command after shell is ready
       if (ptyId) {
         const cmd = getLlmCommand(state.defaultLlm, state.customLlmCommand);
         if (cmd) {
-          // Small delay to let the shell initialize before sending the command
           setTimeout(() => {
             const encoder = new TextEncoder();
             invoke("write_terminal", {
@@ -62,12 +71,15 @@ export function TerminalTabs() {
   };
 
   return (
-    <div className="terminal-tabs">
-      {activeProject.terminals.map((term) => (
-        <button
+    <div className="terminal-tabs" ref={containerRef}>
+      {activeProject.terminals.map((term, i) => (
+        <div
           key={term.id}
           className={`terminal-tab ${state.activeTerminalId === term.id ? "active" : ""}`}
           onClick={() => dispatch({ type: "SET_ACTIVE_TERMINAL", terminalId: term.id })}
+          onPointerDown={(e) => handlePointerDown(e, i)}
+          onPointerMove={(e) => handlePointerMove(e, i)}
+          onPointerUp={(e) => handlePointerUp(e, i)}
         >
           <span className={`status-dot ${term.status}`} />
           {term.title}
@@ -87,7 +99,7 @@ export function TerminalTabs() {
           >
             x
           </span>
-        </button>
+        </div>
       ))}
       <div className="add-terminal-group">
         <button className="terminal-tab add-tab" onClick={() => addTerminal("instance")}>

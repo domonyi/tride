@@ -284,6 +284,13 @@ input, textarea, .xterm, .monaco-editor {
   border-color: var(--border);
 }
 
+.project-tab.tab-dragging {
+  opacity: 0.85;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  position: relative;
+  cursor: grabbing;
+}
+
 .project-tab-close {
   font-size: 14px;
   color: var(--text-muted);
@@ -351,6 +358,13 @@ input, textarea, .xterm, .monaco-editor {
   color: var(--text-primary);
   background: var(--bg-active);
   border-color: var(--text-muted);
+}
+
+.terminal-tab.tab-dragging {
+  opacity: 0.85;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  position: relative;
+  cursor: grabbing;
 }
 
 .terminal-tab .close-btn {
@@ -1483,11 +1497,17 @@ input, textarea, .xterm, .monaco-editor {
   margin-top: 4px;
 }
 
+.scm-commit-split {
+  display: flex;
+  flex: 1;
+  position: relative;
+}
+
 .scm-commit-btn {
   flex: 1;
   padding: 5px 12px;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
   background: var(--accent);
   color: var(--bg-primary);
   cursor: pointer;
@@ -1505,25 +1525,66 @@ input, textarea, .xterm, .monaco-editor {
   cursor: not-allowed;
 }
 
-.scm-push-btn {
-  padding: 5px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
+.scm-commit-dropdown-toggle {
+  padding: 5px 6px;
+  border: none;
+  border-left: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--accent);
+  color: var(--bg-primary);
   cursor: pointer;
-  font-size: 11px;
+  font-size: 8px;
   transition: all 0.15s;
 }
 
-.scm-push-btn:hover:not(:disabled) {
-  color: var(--text-primary);
-  background: var(--bg-hover);
+.scm-commit-dropdown-toggle:hover:not(:disabled) {
+  background: var(--accent-hover);
 }
 
-.scm-push-btn:disabled {
+.scm-commit-dropdown-toggle:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.scm-commit-dropdown {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin-bottom: 2px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  z-index: 100;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.scm-commit-dropdown button {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.scm-commit-dropdown button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.scm-commit-dropdown button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.scm-commit-dropdown button + button {
+  border-top: 1px solid var(--border);
 }
 
 /* History */
