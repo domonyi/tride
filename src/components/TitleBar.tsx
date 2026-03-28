@@ -1,4 +1,14 @@
+import { useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { SettingsPanel } from "./SettingsPanel";
+
+const Logo = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <path d="M4 6h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <path d="M12 6v14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <path d="M8 20h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+  </svg>
+);
 
 const MinimizeIcon = () => (
   <svg width="10" height="1" viewBox="0 0 10 1" fill="currentColor">
@@ -19,39 +29,60 @@ const CloseIcon = () => (
   </svg>
 );
 
+const SettingsIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+  </svg>
+);
+
 export function TitleBar() {
   const appWindow = getCurrentWindow();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const onDragStart = (e: React.MouseEvent) => {
-    // Only drag from the bar itself, not from buttons
     if ((e.target as HTMLElement).closest(".title-bar-controls")) return;
+    if ((e.target as HTMLElement).closest(".title-bar-settings")) return;
     e.preventDefault();
     appWindow.startDragging();
   };
 
   const onDoubleClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest(".title-bar-controls")) return;
+    if ((e.target as HTMLElement).closest(".title-bar-settings")) return;
     appWindow.toggleMaximize();
   };
 
   return (
-    <div
-      className="title-bar"
-      onMouseDown={onDragStart}
-      onDoubleClick={onDoubleClick}
-    >
-      <span className="title-bar-label">Tride</span>
-      <div className="title-bar-controls">
-        <button className="title-btn minimize" onClick={() => appWindow.minimize()}>
-          <MinimizeIcon />
-        </button>
-        <button className="title-btn maximize" onClick={() => appWindow.toggleMaximize()}>
-          <MaximizeIcon />
-        </button>
-        <button className="title-btn close" onClick={() => appWindow.close()}>
-          <CloseIcon />
-        </button>
+    <>
+      <div
+        className="title-bar"
+        onMouseDown={onDragStart}
+        onDoubleClick={onDoubleClick}
+      >
+        <div className="title-bar-left">
+          <span className="title-bar-logo"><Logo /></span>
+          <button
+            className="title-bar-settings"
+            onClick={() => setSettingsOpen(!settingsOpen)}
+            title="Settings"
+          >
+            <SettingsIcon />
+          </button>
+        </div>
+        <div className="title-bar-controls">
+          <button className="title-btn minimize" onClick={() => appWindow.minimize()}>
+            <MinimizeIcon />
+          </button>
+          <button className="title-btn maximize" onClick={() => appWindow.toggleMaximize()}>
+            <MaximizeIcon />
+          </button>
+          <button className="title-btn close" onClick={() => appWindow.close()}>
+            <CloseIcon />
+          </button>
+        </div>
       </div>
-    </div>
+      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
+    </>
   );
 }

@@ -15,6 +15,7 @@ export interface LayoutState {
   sidebarMode: SidebarMode;
   explorerVisible: boolean;
   explorerWidth: number;
+  editorTheme: string;
 }
 
 export function loadLayoutState(): Partial<LayoutState> {
@@ -44,6 +45,7 @@ export function saveLayoutState(state: AppState): void {
       sidebarMode: state.sidebarMode,
       explorerVisible: state.explorerVisible,
       explorerWidth: state.explorerWidth,
+      editorTheme: state.editorTheme,
     };
     localStorage.setItem(KEY, JSON.stringify(layout));
   } catch {

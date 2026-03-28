@@ -37,6 +37,7 @@ export interface AppState {
   scmChangesHeight: number | null;
   lastBrowserUrl: string | null;
   commitMessage: string;
+  editorTheme: string;
 }
 
 export type AppAction =
@@ -57,4 +58,5 @@ export type AppAction =
   | { type: "SET_SCM_CHANGES_HEIGHT"; height: number | null }
   | { type: "SET_LAST_BROWSER_URL"; url: string | null }
   | { type: "SET_COMMIT_MESSAGE"; message: string }
+  | { type: "SET_EDITOR_THEME"; theme: string }
   | { type: "RESTORE_SESSION"; state: Partial<AppState> };

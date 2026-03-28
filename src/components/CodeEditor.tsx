@@ -7,7 +7,7 @@ import { useAppState, useAppDispatch } from "../state/context";
 import { useLsp } from "../hooks/useLsp";
 import { ImagePreview } from "./ImagePreview";
 import { createHighlighter } from "shiki";
-import { shikiToMonaco } from "@shikijs/monaco";
+import { textmateThemeToMonacoTheme } from "@shikijs/monaco";
 import { INITIAL } from "@shikijs/vscode-textmate";
 
 const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "bmp", "webp", "svg", "ico"]);
@@ -70,54 +70,36 @@ class TokenizerState {
 }
 
 // Shiki highlighter — initialized once, shared across editor instances
-let shikiReady = false;
-async function initShiki(monaco: Monaco) {
-  if (shikiReady) return;
-  shikiReady = true;
+let shikiHighlighter: Awaited<ReturnType<typeof createHighlighter>> | null = null;
+let shikiInitPromise: Promise<void> | null = null;
 
-  const highlighter = await createHighlighter({
-    themes: ["tokyo-night"],
-    langs: [
-      "typescript", "tsx", "javascript", "jsx",
-      "rust", "python", "json", "css", "html",
-      "markdown", "toml", "yaml", "shellscript",
-      "sql", "go", "java", "cpp", "c",
-      "csharp", "ruby", "php", "swift", "kotlin",
-      "lua", "xml", "vue", "svelte",
-    ],
-  });
+function registerThemeInMonaco(monaco: Monaco, theme: string) {
+  if (!shikiHighlighter) return;
+  const monacoTheme = textmateThemeToMonacoTheme(shikiHighlighter.getTheme(theme));
+  monaco.editor.defineTheme(theme, monacoTheme);
+}
 
-  // Register our custom language IDs in Monaco before wiring Shiki.
-  // These map to tsx/jsx grammars for tokenization while keeping
-  // separate IDs so only our LSP providers attach to them.
-  monaco.languages.register({ id: "typescript-lsp" });
-  monaco.languages.register({ id: "javascript-lsp" });
+function registerTokenProviders(monaco: Monaco) {
+  if (!shikiHighlighter) return;
+  // Register token providers for all loaded languages + our custom LSP language IDs
+  const monacoLangs = new Set(monaco.languages.getLanguages().map((l: any) => l.id));
+  const langAliases: Record<string, string> = { "typescript-lsp": "tsx", "javascript-lsp": "jsx" };
 
-  // Wire Shiki into Monaco — replaces tokenization with TextMate grammars
-  // and registers all loaded themes as Monaco themes.
-  shikiToMonaco(highlighter, monaco);
+  for (const lang of [...shikiHighlighter.getLoadedLanguages(), ...Object.keys(langAliases)]) {
+    if (!monacoLangs.has(lang)) continue;
+    const grammarLang = langAliases[lang] || lang;
+    let grammar: any;
+    try { grammar = shikiHighlighter.getLanguage(grammarLang); } catch { continue; }
 
-  // shikiToMonaco only wires languages whose ID matches a loaded Shiki language.
-  // We need to also wire our custom -lsp language IDs to use the same grammars.
-  // The trick: call shikiToMonaco again after registering our aliases in the highlighter.
-  // Simpler: just get the loaded languages and get the grammar, then re-set the provider.
-  // Actually simplest: temporarily register our IDs as Shiki language aliases and re-wire.
-
-  for (const [langId, shikiLang] of [["typescript-lsp", "tsx"], ["javascript-lsp", "jsx"]] as const) {
-    const grammar = highlighter.getLanguage(shikiLang);
-    monaco.languages.setTokensProvider(langId, {
-      getInitialState() {
-        return new TokenizerState(INITIAL);
-      },
+    monaco.languages.setTokensProvider(lang, {
+      getInitialState() { return new TokenizerState(INITIAL); },
       tokenize(line: string, state: any) {
         if (line.length >= 20000) {
           return { endState: state, tokens: [{ startIndex: 0, scopes: "" }] };
         }
-        // Use Shiki's grammar to tokenize the line
         const result = grammar.tokenizeLine(line, state.ruleStack, 500);
         const tokens: { startIndex: number; scopes: string }[] = [];
         for (const tok of result.tokens) {
-          // Use the most specific TextMate scope as the Monaco token scope
           const scope = tok.scopes[tok.scopes.length - 1] || "";
           tokens.push({ startIndex: tok.startIndex, scopes: scope });
         }
@@ -127,7 +109,57 @@ async function initShiki(monaco: Monaco) {
   }
 }
 
+async function initShiki(monaco: Monaco, theme: string) {
+  if (shikiHighlighter) {
+    // Already initialized — just load and apply the new theme
+    if (!shikiHighlighter.getLoadedThemes().includes(theme)) {
+      await shikiHighlighter.loadTheme(theme as any);
+    }
+    registerThemeInMonaco(monaco, theme);
+    monaco.editor.setTheme(theme);
+    return;
+  }
+
+  // Prevent double init if called concurrently
+  if (shikiInitPromise) { await shikiInitPromise; return initShiki(monaco, theme); }
+
+  shikiInitPromise = (async () => {
+    shikiHighlighter = await createHighlighter({
+      themes: [theme as any],
+      langs: [
+        "typescript", "tsx", "javascript", "jsx",
+        "rust", "python", "json", "css", "html",
+        "markdown", "toml", "yaml", "shellscript",
+        "sql", "go", "java", "cpp", "c",
+        "csharp", "ruby", "php", "swift", "kotlin",
+        "lua", "xml", "vue", "svelte",
+      ],
+    });
+
+    // Register custom language IDs for LSP
+    monaco.languages.register({ id: "typescript-lsp" });
+    monaco.languages.register({ id: "javascript-lsp" });
+
+    // Register TextMate token providers for all languages
+    registerTokenProviders(monaco);
+
+    // Register and apply the theme
+    registerThemeInMonaco(monaco, theme);
+    monaco.editor.setTheme(theme);
+  })();
+
+  await shikiInitPromise;
+}
+
 const defineTheme: BeforeMount = (monaco) => {
+  // Define a dark fallback theme immediately so the editor is never white while Shiki loads
+  monaco.editor.defineTheme("tride-loading", {
+    base: "vs-dark",
+    inherit: true,
+    rules: [],
+    colors: { "editor.background": "#1a1b26" },
+  });
+
   // Disable Monaco's built-in TS worker completely — LSP handles everything.
   monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
     noSemanticValidation: true,
@@ -346,9 +378,7 @@ export function CodeEditor() {
     setMonacoInstance(monaco);
     editor.addCommand(2048 | 49, () => saveFile()); // Ctrl+S
     // Initialize Shiki TextMate grammars and set the theme
-    initShiki(monaco).then(() => {
-      monaco.editor.setTheme("tokyo-night");
-    });
+    initShiki(monaco, state.editorTheme);
   };
 
   useEffect(() => {
@@ -356,6 +386,13 @@ export function CodeEditor() {
       editorRef.current.addCommand(2048 | 49, () => saveFile());
     }
   }, [saveFile]);
+
+  // Switch theme dynamically when editorTheme changes
+  useEffect(() => {
+    if (monacoInstance) {
+      initShiki(monacoInstance, state.editorTheme);
+    }
+  }, [state.editorTheme, monacoInstance]);
 
   if (!rootPath) {
     return (
@@ -402,7 +439,7 @@ export function CodeEditor() {
             language={getLanguage(currentTab.path)}
             path={fileToUri(currentTab.path)}
             value={currentTab.content}
-            theme="tokyo-night"
+            theme="tride-loading"
             onChange={(value) => {
               setTabs((prev) =>
                 prev.map((t) => t.path === currentTab.path ? { ...t, modified: t.content !== value } : t)
