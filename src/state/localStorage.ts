@@ -1,4 +1,4 @@
-import type { AppState, GridLayout, SidebarMode } from "../types";
+import type { AppState, GridLayout, SidebarMode, DefaultLlm, DefaultShell } from "../types";
 
 const KEY = "tride-layout";
 
@@ -16,6 +16,9 @@ export interface LayoutState {
   explorerVisible: boolean;
   explorerWidth: number;
   editorTheme: string;
+  defaultLlm: DefaultLlm;
+  customLlmCommand: string;
+  defaultShell: DefaultShell;
 }
 
 export function loadLayoutState(): Partial<LayoutState> {
@@ -46,6 +49,9 @@ export function saveLayoutState(state: AppState): void {
       explorerVisible: state.explorerVisible,
       explorerWidth: state.explorerWidth,
       editorTheme: state.editorTheme,
+      defaultLlm: state.defaultLlm,
+      customLlmCommand: state.customLlmCommand,
+      defaultShell: state.defaultShell,
     };
     localStorage.setItem(KEY, JSON.stringify(layout));
   } catch {

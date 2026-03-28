@@ -1,5 +1,6 @@
 import { useAppState, useAppDispatch } from "../state/context";
 import { invoke } from "@tauri-apps/api/core";
+import { getLlmCommand } from "../utils/llmCommand";
 
 export function TerminalTabs() {
   const state = useAppState();
@@ -12,13 +13,36 @@ export function TerminalTabs() {
     const title = `Terminal ${activeProject.terminals.length + 1}`;
     const termId = crypto.randomUUID();
 
+    const shellMap: Record<string, string> = {
+      powershell: "powershell.exe",
+      cmd: "cmd.exe",
+      bash: "/bin/bash",
+      zsh: "/bin/zsh",
+      fish: "/usr/bin/fish",
+    };
+
     let ptyId: string | null = null;
     try {
       ptyId = await invoke<string>("spawn_terminal", {
         cwd: activeProject.path,
         title,
-        shell: null,
+        shell: shellMap[state.defaultShell] ?? null,
       });
+
+      // Auto-run LLM command after shell is ready
+      if (ptyId) {
+        const cmd = getLlmCommand(state.defaultLlm, state.customLlmCommand);
+        if (cmd) {
+          // Small delay to let the shell initialize before sending the command
+          setTimeout(() => {
+            const encoder = new TextEncoder();
+            invoke("write_terminal", {
+              id: ptyId,
+              data: Array.from(encoder.encode(cmd + "\r")),
+            }).catch(() => {});
+          }, 500);
+        }
+      }
     } catch (e) {
       console.error("Failed to spawn terminal:", e);
     }

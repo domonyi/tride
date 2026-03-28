@@ -201,6 +201,13 @@ export function SourceControl() {
     if (view === "branches") refreshBranches();
   }, [isVisible, cwd, view]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Poll for changes while the changes tab is visible
+  useEffect(() => {
+    if (!isVisible || view !== "changes") return;
+    const id = setInterval(refresh, 2000);
+    return () => clearInterval(id);
+  }, [isVisible, view, refresh]);
+
 
   // Open diff for a working tree file
   const openWorkingDiff = useCallback(async (filePath: string, staged: boolean) => {

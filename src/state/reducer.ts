@@ -18,6 +18,9 @@ export const initialState: AppState = {
   lastBrowserUrl: null,
   commitMessage: "",
   editorTheme: cached.editorTheme ?? "tokyo-night",
+  defaultLlm: cached.defaultLlm ?? "none",
+  customLlmCommand: cached.customLlmCommand ?? "",
+  defaultShell: cached.defaultShell ?? (navigator.platform.startsWith("Win") ? "powershell" : "bash"),
 };
 
 export function appReducer(state: AppState, action: AppAction): AppState {
@@ -122,6 +125,15 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "SET_EDITOR_THEME":
       return { ...state, editorTheme: action.theme };
+
+    case "SET_DEFAULT_LLM":
+      return { ...state, defaultLlm: action.llm };
+
+    case "SET_CUSTOM_LLM_COMMAND":
+      return { ...state, customLlmCommand: action.command };
+
+    case "SET_DEFAULT_SHELL":
+      return { ...state, defaultShell: action.shell };
 
     case "RESTORE_SESSION":
       return { ...state, ...action.state };

@@ -25,14 +25,22 @@ function AppContent() {
 
     // Tier 1 (projects, layout) is already in initialState from localStorage.
     // Respawn PTYs immediately from the projects already in state.
-    respawnTerminals(state.projects, (projectId, terminalId, ptyId) => {
-      dispatch({
-        type: "UPDATE_TERMINAL",
-        projectId,
-        terminalId,
-        updates: { ptyId },
-      });
-    });
+    respawnTerminals(
+      state.projects,
+      (projectId, terminalId, ptyId) => {
+        dispatch({
+          type: "UPDATE_TERMINAL",
+          projectId,
+          terminalId,
+          updates: { ptyId },
+        });
+      },
+      {
+        defaultShell: state.defaultShell,
+        defaultLlm: state.defaultLlm,
+        customLlmCommand: state.customLlmCommand,
+      },
+    );
 
     // Tier 2: load remaining state from session file
     loadSession().then((session) => {

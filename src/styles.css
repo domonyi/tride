@@ -175,6 +175,9 @@ input, textarea, .xterm, .monaco-editor {
 
 .settings-body {
   padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .settings-section {
@@ -194,15 +197,40 @@ input, textarea, .xterm, .monaco-editor {
   color: var(--text-primary);
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 6px 24px 6px 8px;
+  padding: 6px 32px 6px 8px;
   font-size: 12px;
   font-family: inherit;
   outline: none;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
 }
 
 .settings-select:focus {
   border-color: var(--text-muted);
+}
+
+.settings-input {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+
+.settings-input:focus {
+  border-color: var(--text-muted);
+}
+
+.settings-hint {
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 /* ── App Layout ──────────────────────────────────────────────────────── */

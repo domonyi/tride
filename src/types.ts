@@ -23,6 +23,9 @@ export interface GridLayout {
 
 export type SidebarMode = "code" | "scm" | "browser";
 
+export type DefaultLlm = "none" | "claude" | "codex" | "custom";
+export type DefaultShell = "powershell" | "cmd" | "bash" | "zsh" | "fish";
+
 export interface AppState {
   projects: Project[];
   activeProjectId: string | null;
@@ -38,6 +41,9 @@ export interface AppState {
   lastBrowserUrl: string | null;
   commitMessage: string;
   editorTheme: string;
+  defaultLlm: DefaultLlm;
+  customLlmCommand: string;
+  defaultShell: DefaultShell;
 }
 
 export type AppAction =
@@ -59,4 +65,7 @@ export type AppAction =
   | { type: "SET_LAST_BROWSER_URL"; url: string | null }
   | { type: "SET_COMMIT_MESSAGE"; message: string }
   | { type: "SET_EDITOR_THEME"; theme: string }
+  | { type: "SET_DEFAULT_LLM"; llm: DefaultLlm }
+  | { type: "SET_CUSTOM_LLM_COMMAND"; command: string }
+  | { type: "SET_DEFAULT_SHELL"; shell: DefaultShell }
   | { type: "RESTORE_SESSION"; state: Partial<AppState> };

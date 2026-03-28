@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { AppState, Project, Terminal, GridLayout, SidebarMode } from "../types";
+import type { AppState, Project, Terminal, GridLayout, SidebarMode, DefaultLlm, DefaultShell } from "../types";
+import { getLlmCommand } from "../utils/llmCommand";
 
 interface SavedTerminal {
   id: string;
@@ -130,7 +131,17 @@ export async function loadSession(): Promise<RestoredSession | null> {
 export async function respawnTerminals(
   projects: Project[],
   onPtySpawned: (projectId: string, terminalId: string, ptyId: string) => void,
+  options?: { defaultShell?: DefaultShell; defaultLlm?: DefaultLlm; customLlmCommand?: string },
 ) {
+  const shellMap: Record<string, string> = {
+    powershell: "powershell.exe",
+    cmd: "cmd.exe",
+    bash: "/bin/bash",
+    zsh: "/bin/zsh",
+    fish: "/usr/bin/fish",
+  };
+  const shell = options?.defaultShell ? (shellMap[options.defaultShell] ?? null) : null;
+
   for (const project of projects) {
     for (const terminal of project.terminals) {
       if (terminal.ptyId) continue; // already has a PTY
@@ -138,9 +149,21 @@ export async function respawnTerminals(
         const ptyId = await invoke<string>("spawn_terminal", {
           cwd: terminal.cwd,
           title: terminal.title,
-          shell: null,
+          shell,
         });
         onPtySpawned(project.id, terminal.id, ptyId);
+
+        // Auto-run LLM command after shell is ready
+        const cmd = getLlmCommand(options?.defaultLlm ?? "none", options?.customLlmCommand ?? "");
+        if (cmd) {
+          setTimeout(() => {
+            const encoder = new TextEncoder();
+            invoke("write_terminal", {
+              id: ptyId,
+              data: Array.from(encoder.encode(cmd + "\r")),
+            }).catch(() => {});
+          }, 500);
+        }
       } catch (e) {
         console.error(`Failed to respawn terminal ${terminal.title}:`, e);
       }

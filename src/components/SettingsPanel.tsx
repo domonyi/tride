@@ -1,4 +1,5 @@
 import { useAppState, useAppDispatch } from "../state/context";
+import type { DefaultLlm, DefaultShell } from "../types";
 
 const THEMES = [
   { id: "tokyo-night", name: "Tokyo Night" },
@@ -42,6 +43,20 @@ const THEMES = [
   { id: "vitesse-dark", name: "Vitesse Dark" },
 ];
 
+const IS_WINDOWS = navigator.platform.startsWith("Win");
+const IS_MAC = navigator.platform.startsWith("Mac");
+
+const SHELL_OPTIONS = IS_WINDOWS
+  ? [
+      { id: "powershell", name: "PowerShell" },
+      { id: "cmd", name: "Command Prompt (cmd)" },
+    ]
+  : [
+      { id: "bash", name: "Bash" },
+      { id: "zsh", name: "Zsh" },
+      { id: "fish", name: "Fish" },
+    ];
+
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const state = useAppState();
   const dispatch = useAppDispatch();
@@ -66,6 +81,53 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
               ))}
             </select>
           </div>
+
+          <div className="settings-section">
+            <label className="settings-label">Default Terminal Shell</label>
+            <select
+              className="settings-select"
+              value={state.defaultShell}
+              onChange={(e) => dispatch({ type: "SET_DEFAULT_SHELL", shell: e.target.value as DefaultShell })}
+            >
+              {SHELL_OPTIONS.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="settings-section">
+            <label className="settings-label">Default LLM</label>
+            <select
+              className="settings-select"
+              value={state.defaultLlm}
+              onChange={(e) => dispatch({ type: "SET_DEFAULT_LLM", llm: e.target.value as DefaultLlm })}
+            >
+              <option value="none">None</option>
+              <option value="claude">Claude</option>
+              <option value="codex">Codex</option>
+              <option value="custom">Custom command</option>
+            </select>
+            <span className="settings-hint">
+              {state.defaultLlm === "none"
+                ? "Terminal opens with a plain shell"
+                : state.defaultLlm === "custom"
+                ? "Runs your custom command on terminal start"
+                : `Runs "${state.defaultLlm}" on terminal start`}
+            </span>
+          </div>
+
+          {state.defaultLlm === "custom" && (
+            <div className="settings-section">
+              <label className="settings-label">Custom Command</label>
+              <input
+                className="settings-input"
+                type="text"
+                placeholder="e.g. claude --resume"
+                value={state.customLlmCommand}
+                onChange={(e) => dispatch({ type: "SET_CUSTOM_LLM_COMMAND", command: e.target.value })}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
