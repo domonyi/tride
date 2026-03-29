@@ -283,6 +283,27 @@ async fn git_discard(cwd: String, path: String) -> Result<(), String> {
         .map_err(|e| format!("Task join error: {}", e))?
 }
 
+#[tauri::command]
+async fn git_worktree_add(cwd: String, branch: String, worktree_path: String) -> Result<git::WorktreeInfo, String> {
+    tokio::task::spawn_blocking(move || git::worktree_add(&cwd, &branch, &worktree_path))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[tauri::command]
+async fn git_worktree_remove(cwd: String, worktree_path: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || git::worktree_remove(&cwd, &worktree_path))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[tauri::command]
+async fn git_worktree_list(cwd: String) -> Result<Vec<git::WorktreeInfo>, String> {
+    tokio::task::spawn_blocking(move || git::worktree_list(&cwd))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
 // ── LSP Commands ────────────────────────────────────────────────────────────
 
 #[tauri::command]
@@ -389,6 +410,9 @@ pub fn run() {
             git_delete_branch,
             git_discard,
             git_diff_lines,
+            git_worktree_add,
+            git_worktree_remove,
+            git_worktree_list,
             lsp_start,
             lsp_send,
             lsp_stop,

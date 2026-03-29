@@ -8,6 +8,7 @@ interface SavedTerminal {
   cwd: string;
   mode: "worktree" | "instance";
   branch?: string;
+  worktreePath?: string;
 }
 
 interface SavedSession {
@@ -54,6 +55,7 @@ export async function saveSession(state: AppState): Promise<void> {
         cwd: t.cwd,
         mode: t.mode,
         branch: t.branch,
+        worktreePath: t.worktreePath,
       })),
     })),
     activeProjectId: state.activeProjectId,
@@ -110,6 +112,7 @@ export async function loadSession(): Promise<RestoredSession | null> {
           ...t,
           ptyId: null, // will be re-spawned
           status: "idle" as const,
+          worktreePath: t.worktreePath,
         })),
       })),
       activeProjectId: session.activeProjectId,

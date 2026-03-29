@@ -309,6 +309,71 @@ pub fn delete_branch(cwd: &str, branch: &str) -> Result<String, String> {
     Ok(output.trim().to_string())
 }
 
+// ── Worktree Commands ──────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorktreeInfo {
+    pub path: String,
+    pub branch: String,
+}
+
+/// Create a git worktree for the given branch at the specified path.
+/// If the branch doesn't exist, creates a new branch from HEAD.
+pub fn worktree_add(cwd: &str, branch: &str, worktree_path: &str) -> Result<WorktreeInfo, String> {
+    // Check if branch already exists
+    let branches_output = run_git(cwd, &["branch", "--list", branch])?;
+    let branch_exists = branches_output.lines().any(|l| l.trim().trim_start_matches("* ") == branch);
+
+    if branch_exists {
+        run_git(cwd, &["worktree", "add", worktree_path, branch])?;
+    } else {
+        run_git(cwd, &["worktree", "add", "-b", branch, worktree_path])?;
+    }
+
+    Ok(WorktreeInfo {
+        path: worktree_path.to_string(),
+        branch: branch.to_string(),
+    })
+}
+
+/// Remove a git worktree
+pub fn worktree_remove(cwd: &str, worktree_path: &str) -> Result<(), String> {
+    run_git(cwd, &["worktree", "remove", "--force", worktree_path])?;
+    Ok(())
+}
+
+/// List all worktrees
+pub fn worktree_list(cwd: &str) -> Result<Vec<WorktreeInfo>, String> {
+    let output = run_git(cwd, &["worktree", "list", "--porcelain"])?;
+    let mut worktrees = Vec::new();
+    let mut current_path = String::new();
+    let mut current_branch = String::new();
+
+    for line in output.lines() {
+        if let Some(p) = line.strip_prefix("worktree ") {
+            current_path = p.to_string();
+        } else if let Some(b) = line.strip_prefix("branch refs/heads/") {
+            current_branch = b.to_string();
+        } else if line.is_empty() && !current_path.is_empty() {
+            worktrees.push(WorktreeInfo {
+                path: current_path.clone(),
+                branch: current_branch.clone(),
+            });
+            current_path.clear();
+            current_branch.clear();
+        }
+    }
+    // Handle last entry (no trailing blank line)
+    if !current_path.is_empty() {
+        worktrees.push(WorktreeInfo {
+            path: current_path,
+            branch: current_branch,
+        });
+    }
+
+    Ok(worktrees)
+}
+
 /// Discard changes for a file (restore to HEAD for tracked, clean for untracked)
 pub fn discard(cwd: &str, path: &str) -> Result<(), String> {
     // Check if the file is untracked

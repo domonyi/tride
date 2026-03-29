@@ -13,6 +13,7 @@ export interface Terminal {
   mode: "worktree" | "instance";
   status: "idle" | "running" | "done" | "error";
   branch?: string;
+  worktreePath?: string; // absolute path to the git worktree directory
   filesChanged?: number;
 }
 
