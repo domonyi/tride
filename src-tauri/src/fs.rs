@@ -242,6 +242,67 @@ fn collect_sources(base: &Path, dir: &Path, results: &mut Vec<DtsFile>) -> Resul
     Ok(())
 }
 
+/// Recursively walk a directory and return all file paths (relative to root).
+/// Respects common ignore patterns (node_modules, .git, dist, etc.)
+/// Returns at most `limit` results to avoid overwhelming the frontend.
+pub fn walk_files(root: &str, limit: usize) -> Result<Vec<String>, String> {
+    let base = Path::new(root);
+    if !base.is_dir() {
+        return Err(format!("Not a directory: {}", root));
+    }
+    let mut results = Vec::new();
+    walk_files_recursive(base, base, limit, &mut results)?;
+    Ok(results)
+}
+
+fn walk_files_recursive(
+    base: &Path,
+    dir: &Path,
+    limit: usize,
+    results: &mut Vec<String>,
+) -> Result<(), String> {
+    if results.len() >= limit {
+        return Ok(());
+    }
+    let entries = match std::fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => return Ok(()),
+    };
+    for entry in entries.flatten() {
+        if results.len() >= limit {
+            return Ok(());
+        }
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().to_string();
+
+        // Skip hidden dirs and common noise
+        if name.starts_with('.')
+            || name == "node_modules"
+            || name == "target"
+            || name == "__pycache__"
+            || name == "dist"
+            || name == "build"
+            || name == ".next"
+            || name == "coverage"
+            || name == ".turbo"
+        {
+            continue;
+        }
+
+        if path.is_dir() {
+            walk_files_recursive(base, &path, limit, results)?;
+        } else {
+            let rel = path
+                .strip_prefix(base)
+                .unwrap_or(&path)
+                .to_string_lossy()
+                .replace('\\', "/");
+            results.push(rel);
+        }
+    }
+    Ok(())
+}
+
 /// Delete a file or directory (recursively)
 pub fn delete_entry(path: &str) -> Result<(), String> {
     let p = Path::new(path);

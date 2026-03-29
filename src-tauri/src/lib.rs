@@ -327,6 +327,16 @@ fn lsp_stop(state: State<AppState>, id: String) -> Result<(), String> {
     Ok(())
 }
 
+// ── Search Commands ────────────────────────────────────────────────────
+
+#[tauri::command]
+async fn walk_files(root: String, limit: Option<usize>) -> Result<Vec<String>, String> {
+    let lim = limit.unwrap_or(10000);
+    tokio::task::spawn_blocking(move || fs::walk_files(&root, lim))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
+}
+
 // ── Clipboard Commands ──────────────────────────────────────────────────────
 
 #[tauri::command]
@@ -413,6 +423,7 @@ pub fn run() {
             git_worktree_add,
             git_worktree_remove,
             git_worktree_list,
+            walk_files,
             lsp_start,
             lsp_send,
             lsp_stop,

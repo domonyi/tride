@@ -2,6 +2,7 @@ import { useAppState, useAppDispatch } from "../state/context";
 import { useTabDrag } from "../hooks/useTabDrag";
 import { invoke } from "@tauri-apps/api/core";
 import { getLlmCommand } from "../utils/llmCommand";
+import { removePtyBuffer } from "../ptyBuffer";
 
 export function TerminalTabs() {
   const state = useAppState();
@@ -131,6 +132,7 @@ export function TerminalTabs() {
               e.stopPropagation();
               if (term.ptyId) {
                 invoke("kill_terminal", { id: term.ptyId }).catch(() => {});
+                removePtyBuffer(term.ptyId);
               }
               // Clean up worktree if this was a worktree terminal
               if (term.mode === "worktree" && term.worktreePath) {

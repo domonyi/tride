@@ -43,7 +43,7 @@ export function ProjectTabs() {
           key={project.id}
           className={`project-tab ${state.activeProjectId === project.id ? "active" : ""}`}
           onClick={() => dispatch({ type: "SET_ACTIVE_PROJECT", projectId: project.id })}
-          title={project.path}
+          title={`${project.path}${i < 9 ? ` (F${i + 1})` : ""}`}
           onPointerDown={(e) => handlePointerDown(e, i)}
           onPointerMove={(e) => handlePointerMove(e, i)}
           onPointerUp={(e) => handlePointerUp(e, i)}

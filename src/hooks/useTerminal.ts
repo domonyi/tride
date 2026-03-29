@@ -5,6 +5,7 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { drainBuffer, hasExited, markActive, markInactive } from "../ptyBuffer";
 
 interface UseTerminalOptions {
   ptyId: string | null;
@@ -32,6 +33,7 @@ export function useTerminal({ ptyId, onLinkClick }: UseTerminalOptions) {
     if (!containerRef.current) return;
 
     const xterm = new XTerm({
+      scrollback: 10_000,
       cursorBlink: false,
       cursorStyle: "bar",
       cursorWidth: 1,
@@ -196,6 +198,18 @@ export function useTerminal({ ptyId, onLinkClick }: UseTerminalOptions) {
 
     const xterm = xtermRef.current;
 
+    // Replay any buffered output that arrived while this terminal was unmounted
+    const buffered = drainBuffer(ptyId);
+    for (const chunk of buffered) {
+      xterm.write(chunk);
+    }
+    if (hasExited(ptyId)) {
+      xterm.write("\r\n\x1b[90m[Process exited]\x1b[0m\r\n");
+    }
+
+    // Mark this PTY as actively consumed so the global buffer skips it
+    markActive(ptyId);
+
     // User input -> write to PTY
     const inputDisposable = xterm.onData((data) => {
       const encoder = new TextEncoder();
@@ -229,6 +243,7 @@ export function useTerminal({ ptyId, onLinkClick }: UseTerminalOptions) {
       inputDisposable.dispose();
       unlistenData?.();
       unlistenExit?.();
+      markInactive(ptyId);
     };
   }, [ptyId]);
 

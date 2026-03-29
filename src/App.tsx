@@ -1,10 +1,11 @@
-import { useEffect, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { AppProvider, useAppState, useAppDispatch } from "./state/context";
 import { TitleBar } from "./components/TitleBar";
 import { ProjectTabs } from "./components/ProjectTabs";
 import { TerminalTabs } from "./components/TerminalTabs";
 import { Sidebar } from "./components/Sidebar";
 import { ActionBar } from "./components/ActionBar";
+import { SearchBar } from "./components/SearchBar";
 
 const TerminalGrid = lazy(() => import("./components/TerminalGrid").then((m) => ({ default: m.TerminalGrid })));
 import { saveSession, loadSession, respawnTerminals } from "./state/session";
@@ -17,6 +18,7 @@ function AppContent() {
   const dispatch = useAppDispatch();
   const loadedRef = useRef(false);
   const restoredRef = useRef(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   // Restore session on startup
   useEffect(() => {
@@ -78,24 +80,52 @@ function AppContent() {
   // Global keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const modeMap: Record<string, SidebarMode> = {
-        F1: "code",
-        F2: "scm",
-        F3: "browser",
-      };
-      if (modeMap[e.key]) {
-        e.preventDefault();
-        dispatch({ type: "SET_SIDEBAR_MODE", mode: modeMap[e.key] });
+      // Ctrl+1/2/3 → sidebar modes
+      if (e.ctrlKey) {
+        const modeMap: Record<string, SidebarMode> = {
+          "1": "code",
+          "2": "scm",
+          "3": "browser",
+        };
+        if (modeMap[e.key]) {
+          e.preventDefault();
+          dispatch({ type: "SET_SIDEBAR_MODE", mode: modeMap[e.key] });
+          return;
+        }
+      }
+
+      // F1-F9 → switch project by index
+      const fMatch = e.key.match(/^F(\d)$/);
+      if (fMatch && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        const idx = parseInt(fMatch[1]) - 1;
+        if (idx >= 0 && idx < state.projects.length) {
+          e.preventDefault();
+          dispatch({ type: "SET_ACTIVE_PROJECT", projectId: state.projects[idx].id });
+        }
+        return;
       }
 
       if (e.ctrlKey && e.key === "b") {
         e.preventDefault();
         dispatch({ type: "TOGGLE_EXPLORER" });
       }
+
+      if (e.ctrlKey && e.key === "p") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [dispatch]);
+  }, [dispatch, state.projects]);
+
+  const activeProject = state.projects.find((p) => p.id === state.activeProjectId);
+
+  const handleSearchFileSelect = (path: string) => {
+    dispatch({ type: "SET_SIDEBAR_MODE", mode: "code" });
+    if (!state.sidebarVisible) dispatch({ type: "TOGGLE_SIDEBAR" });
+    window.dispatchEvent(new CustomEvent("open-file", { detail: path }));
+  };
 
   return (
     <div className="app">
@@ -115,6 +145,13 @@ function AppContent() {
         <Sidebar />
       </div>
       <ActionBar />
+      {searchOpen && activeProject && (
+        <SearchBar
+          rootPath={activeProject.path}
+          onFileSelect={handleSearchFileSelect}
+          onClose={() => setSearchOpen(false)}
+        />
+      )}
     </div>
   );
 }

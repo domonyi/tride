@@ -921,6 +921,103 @@ input, textarea, .xterm, .monaco-editor {
   margin: 4px 0;
 }
 
+/* ── Search Bar (Ctrl+P) ────────────────────────────────────────────── */
+
+.search-bar-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  padding-top: 52px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.search-bar {
+  width: 520px;
+  max-height: 420px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  align-self: flex-start;
+}
+
+.search-bar-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-primary);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+}
+
+.search-bar-input::placeholder {
+  color: var(--text-muted);
+}
+
+.search-bar-results {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.search-bar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  min-height: 30px;
+}
+
+.search-bar-item:hover,
+.search-bar-item.selected {
+  background: var(--bg-hover);
+}
+
+.search-bar-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.search-bar-filename {
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-bar-dir {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-left: auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.search-bar-highlight {
+  color: var(--cyan);
+  font-weight: 600;
+}
+
+.search-bar-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
 .sidebar-placeholder {
   display: flex;
   flex-direction: column;
