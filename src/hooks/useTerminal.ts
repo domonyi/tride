@@ -33,6 +33,8 @@ export function useTerminal({ ptyId, onLinkClick }: UseTerminalOptions) {
 
     const xterm = new XTerm({
       cursorBlink: false,
+      cursorStyle: "bar",
+      cursorWidth: 1,
       cursorInactiveStyle: "none",
       fontSize: 13,
       fontFamily: "'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, monospace",

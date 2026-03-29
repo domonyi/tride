@@ -258,9 +258,7 @@ export function CodeEditor() {
 
   // Save active file and all open tabs to state
   useEffect(() => {
-    if (activeTab !== null) {
-      dispatch({ type: "SET_LAST_OPENED_FILE", path: activeTab });
-    }
+    dispatch({ type: "SET_LAST_OPENED_FILE", path: activeTab });
   }, [activeTab, dispatch]);
 
   useEffect(() => {

@@ -140,6 +140,7 @@ export function SourceControl() {
   }, [dispatch, projectId]);
   const [actionOutput, setActionOutput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pushing, setPushing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [diffTarget, setDiffTarget] = useState<DiffTarget | null>(null);
   const [originalContent, setOriginalContent] = useState("");
@@ -331,22 +332,25 @@ export function SourceControl() {
       setCommitMsg("");
       await refresh();
       // Push
+      setPushing(true);
       try {
         const pushResult = await invoke<string>("git_push", { cwd });
         setActionOutput(pushResult || "Committed & pushed successfully");
       } catch (e) {
         setActionOutput(`Committed, but push failed: ${e}`);
+      } finally {
+        setPushing(false);
       }
     } catch (e) { setActionOutput(`Error: ${e}`); } finally { setLoading(false); }
   }, [cwd, commitMsg, files, refresh]);
 
   const doPush = useCallback(async () => {
     if (!cwd) return;
-    setLoading(true);
+    setPushing(true);
     try {
       const result = await invoke<string>("git_push", { cwd });
       setActionOutput(result || "Pushed successfully");
-    } catch (e) { setActionOutput(`Error: ${e}`); } finally { setLoading(false); }
+    } catch (e) { setActionOutput(`Error: ${e}`); } finally { setPushing(false); }
   }, [cwd]);
 
   const switchBranch = useCallback(async (branch: string) => {
@@ -529,13 +533,13 @@ export function SourceControl() {
               />
               <div className="scm-commit-actions">
                 <div className="scm-commit-split" ref={commitDropdownRef}>
-                  <button className="scm-commit-btn" onClick={doCommitAndPush} disabled={loading || !commitMsg.trim()}>
-                    Commit & Push
+                  <button className="scm-commit-btn" onClick={doCommitAndPush} disabled={loading || pushing || !commitMsg.trim()}>
+                    {pushing ? <><span className="scm-spinner" /> Pushing...</> : "Commit & Push"}
                   </button>
                   <button
                     className="scm-commit-dropdown-toggle"
                     onClick={() => setCommitDropdownOpen((v) => !v)}
-                    disabled={loading}
+                    disabled={loading || pushing}
                   >
                     &#9660;
                   </button>
@@ -544,8 +548,8 @@ export function SourceControl() {
                       <button onClick={() => { setCommitDropdownOpen(false); doCommit(); }} disabled={!commitMsg.trim()}>
                         Commit
                       </button>
-                      <button onClick={() => { setCommitDropdownOpen(false); doPush(); }}>
-                        Push
+                      <button onClick={() => { setCommitDropdownOpen(false); doPush(); }} disabled={pushing}>
+                        {pushing ? <><span className="scm-spinner" /> Pushing...</> : "Push"}
                       </button>
                     </div>
                   )}

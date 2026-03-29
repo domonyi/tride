@@ -108,11 +108,11 @@ export function useTabDrag(opts: {
       el.style.zIndex = "";
     }
 
-    // Clear all tab transforms
+    // Clear all tab transforms instantly (no transition to avoid spring effect)
     const tabs = getTabs();
     for (const tab of tabs) {
+      tab.style.transition = "none";
       tab.style.transform = "";
-      tab.style.transition = "";
     }
 
     if (drag.currentIndex !== drag.index) {
