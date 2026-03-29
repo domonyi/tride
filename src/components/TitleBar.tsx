@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useAppState } from "../state/context";
 import { SettingsPanel } from "./SettingsPanel";
 
 const Logo = () => (
@@ -34,7 +35,9 @@ const SettingsIcon = () => (
 
 export function TitleBar() {
   const appWindow = getCurrentWindow();
+  const state = useAppState();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const activeProject = state.projects.find((p) => p.id === state.activeProjectId);
 
   const onDragStart = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest(".title-bar-controls")) return;
@@ -53,6 +56,11 @@ export function TitleBar() {
     <>
       <div
         className="title-bar"
+        style={
+          activeProject?.color
+            ? ({ "--project-color": activeProject.color } as React.CSSProperties)
+            : undefined
+        }
         onMouseDown={onDragStart}
         onDoubleClick={onDoubleClick}
       >

@@ -129,6 +129,27 @@ export function useTerminal({ ptyId, onLinkClick }: UseTerminalOptions) {
     // Clipboard: Ctrl+C (copy when selection) and Ctrl+V (paste)
     xterm.attachCustomKeyEventHandler((event: KeyboardEvent) => {
       if (event.type !== "keydown") return true;
+
+      // Let F1-F9 pass through to window handler (project tab switching)
+      if (/^F[1-9]$/.test(event.key) && !event.ctrlKey && !event.altKey && !event.metaKey) {
+        return false;
+      }
+
+      // Let Alt+1/2/3 pass through to window handler (sidebar mode switching)
+      if (event.altKey && !event.ctrlKey && !event.metaKey && ["1", "2", "3"].includes(event.key)) {
+        return false;
+      }
+
+      // Let Ctrl+B pass through (toggle sidebar)
+      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key === "b") {
+        return false;
+      }
+
+      // Let Ctrl+P pass through (search)
+      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key === "p") {
+        return false;
+      }
+
       const isCtrl = event.ctrlKey || event.metaKey;
 
       // Ctrl+Shift+C: always copy

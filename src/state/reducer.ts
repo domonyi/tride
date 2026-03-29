@@ -1,6 +1,17 @@
 import { AppState, AppAction } from "../types";
 import { loadLayoutState } from "./localStorage";
 
+const PROJECT_COLORS = [
+  "#4a6fa5", // steel blue
+  "#6a8f6b", // sage green
+  "#8b6bb0", // muted purple
+  "#b07a4a", // warm amber
+  "#4a9b9b", // teal
+  "#b04a6a", // dusty rose
+  "#7a8b4a", // olive
+  "#6a7fb0", // periwinkle
+];
+
 const cached = loadLayoutState();
 
 export const initialState: AppState = {
@@ -26,13 +37,19 @@ export const initialState: AppState = {
 
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
-    case "ADD_PROJECT":
+    case "ADD_PROJECT": {
+      const usedColors = new Set(state.projects.map((p) => p.color));
+      const autoColor =
+        action.project.color ??
+        PROJECT_COLORS.find((c) => !usedColors.has(c)) ??
+        PROJECT_COLORS[state.projects.length % PROJECT_COLORS.length];
       return {
         ...state,
-        projects: [...state.projects, action.project],
+        projects: [...state.projects, { ...action.project, color: autoColor }],
         activeProjectId: action.project.id,
         activeTerminalId: null,
       };
+    }
 
     case "REMOVE_PROJECT": {
       const remaining = state.projects.filter((p) => p.id !== action.projectId);
@@ -140,6 +157,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "SET_DEFAULT_SHELL":
       return { ...state, defaultShell: action.shell };
+
+    case "SET_PROJECT_COLOR":
+      return {
+        ...state,
+        projects: state.projects.map((p) =>
+          p.id === action.projectId ? { ...p, color: action.color } : p
+        ),
+      };
 
     case "REORDER_PROJECTS": {
       const projects = [...state.projects];

@@ -57,11 +57,12 @@ input, textarea, .xterm, .monaco-editor {
   justify-content: space-between;
   height: 32px;
   padding-left: 12px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--project-color, transparent) 15%, var(--bg-secondary));
+  border-bottom: 1px solid color-mix(in srgb, var(--project-color, transparent) 25%, var(--border));
   flex-shrink: 0;
   user-select: none;
   -webkit-user-select: none;
+  transition: background 0.3s ease, border-color 0.3s ease;
 }
 
 .title-bar-left {
@@ -323,6 +324,33 @@ input, textarea, .xterm, .monaco-editor {
 
 .project-tab.add-tab:hover {
   color: var(--accent);
+}
+
+/* ── Project Color Picker ────────────────────────────────────────────── */
+.color-picker-popup {
+  position: fixed;
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+}
+
+.color-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.color-swatch:hover {
+  border-color: var(--text-primary);
+  transform: scale(1.2);
 }
 
 /* ── Terminal Tabs ───────────────────────────────────────────────────── */

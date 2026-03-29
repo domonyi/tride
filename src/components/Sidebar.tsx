@@ -7,9 +7,9 @@ const SourceControl = lazy(() => import("./SourceControl").then((m) => ({ defaul
 const BrowserPanel = lazy(() => import("./BrowserPanel").then((m) => ({ default: m.BrowserPanel })));
 
 const SIDEBAR_MODES: { key: SidebarMode; label: string; shortcut: string }[] = [
-  { key: "code", label: "CODE", shortcut: "Ctrl+1" },
-  { key: "scm", label: "SOURCE CONTROL", shortcut: "Ctrl+2" },
-  { key: "browser", label: "BROWSER", shortcut: "Ctrl+3" },
+  { key: "code", label: "CODE", shortcut: "Alt+1" },
+  { key: "scm", label: "SOURCE CONTROL", shortcut: "Alt+2" },
+  { key: "browser", label: "BROWSER", shortcut: "Alt+3" },
 ];
 
 export function Sidebar() {

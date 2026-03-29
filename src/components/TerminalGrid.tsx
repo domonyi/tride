@@ -16,17 +16,29 @@ export function TerminalGrid() {
 
   const { rows, cols } = state.gridLayout;
 
+  // Render ALL projects' terminals to preserve xterm scrollback history.
+  // Non-active projects are hidden with CSS but stay mounted.
   return (
-    <div
-      className="terminal-grid"
-      style={{
-        gridTemplateRows: `repeat(${rows}, 1fr)`,
-        gridTemplateColumns: `repeat(${cols}, 1fr)`,
-      }}
-    >
-      {activeProject.terminals.map((terminal) => (
-        <TerminalPane key={terminal.id} terminal={terminal} />
-      ))}
-    </div>
+    <>
+      {state.projects.map((project) => {
+        const isActive = project.id === state.activeProjectId;
+        if (project.terminals.length === 0) return null;
+        return (
+          <div
+            key={project.id}
+            className="terminal-grid"
+            style={{
+              gridTemplateRows: `repeat(${rows}, 1fr)`,
+              gridTemplateColumns: `repeat(${cols}, 1fr)`,
+              display: isActive ? "grid" : "none",
+            }}
+          >
+            {project.terminals.map((terminal) => (
+              <TerminalPane key={terminal.id} terminal={terminal} />
+            ))}
+          </div>
+        );
+      })}
+    </>
   );
 }

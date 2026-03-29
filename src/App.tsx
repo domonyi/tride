@@ -80,8 +80,8 @@ function AppContent() {
   // Global keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Ctrl+1/2/3 → sidebar modes
-      if (e.ctrlKey) {
+      // Alt+1/2/3 → sidebar modes
+      if (e.altKey && !e.ctrlKey && !e.metaKey) {
         const modeMap: Record<string, SidebarMode> = {
           "1": "code",
           "2": "scm",

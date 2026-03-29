@@ -3,6 +3,7 @@ export interface Project {
   name: string;
   path: string;
   terminals: Terminal[];
+  color?: string;
 }
 
 export interface Terminal {
@@ -73,4 +74,5 @@ export type AppAction =
   | { type: "SET_DEFAULT_SHELL"; shell: DefaultShell }
   | { type: "REORDER_PROJECTS"; fromIndex: number; toIndex: number }
   | { type: "REORDER_TERMINALS"; projectId: string; fromIndex: number; toIndex: number }
+  | { type: "SET_PROJECT_COLOR"; projectId: string; color: string }
   | { type: "RESTORE_SESSION"; state: Partial<AppState> };
