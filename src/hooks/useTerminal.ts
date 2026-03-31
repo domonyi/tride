@@ -6,7 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { drainBuffer, hasExited, markActive, markInactive, saveScreen, restoreScreen, notifyUserInput } from "../ptyBuffer";
-import { logEscapeSequences } from "../debugLog";
+
 
 interface UseTerminalOptions {
   ptyId: string | null;
@@ -301,7 +301,6 @@ export function useTerminal({ ptyId, isActive, onLinkClick, onTitleChange, onFoc
           // Strip "show cursor" escape sequences so only Claude Code's cursor is visible
           const raw = new Uint8Array(event.payload.data);
           const text = new TextDecoder().decode(raw);
-          logEscapeSequences(ptyId, text);
           const filtered = text.replace(/\x1b\[\?25h/g, "");
           xtermRef.current.write(filtered);
         }

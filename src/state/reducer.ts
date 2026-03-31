@@ -1,5 +1,6 @@
 import { AppState, AppAction } from "../types";
 import { loadLayoutState } from "./localStorage";
+import { IS_WINDOWS } from "../utils/platform";
 
 const PROJECT_COLORS = [
   "#4a6fa5", // steel blue
@@ -33,7 +34,7 @@ export const initialState: AppState = {
   editorTheme: cached.editorTheme ?? "dark-plus",
   defaultLlm: cached.defaultLlm ?? "none",
   customLlmCommand: cached.customLlmCommand ?? "",
-  defaultShell: cached.defaultShell ?? (navigator.platform.startsWith("Win") ? "powershell" : "bash"),
+  defaultShell: cached.defaultShell ?? (IS_WINDOWS ? "powershell" : "bash"),
   tabOverflowMode: cached.tabOverflowMode ?? "arrows",
   expandedFolders: {},
   todos: cached.todos ?? [],

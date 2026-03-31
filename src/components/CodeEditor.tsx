@@ -7,6 +7,7 @@ import { useAppState, useAppDispatch } from "../state/context";
 import { useLsp } from "../hooks/useLsp";
 import { ImagePreview } from "./ImagePreview";
 import { initShiki } from "../shiki";
+import { SEP, normalizePath } from "../utils/platform";
 
 const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "bmp", "webp", "svg", "ico"]);
 
@@ -225,10 +226,9 @@ export function CodeEditor() {
     const fetchStatus = async () => {
       try {
         const result = await invoke<GitFileStatus[]>("git_status", { cwd: rootPath });
-        const sep = rootPath.includes("/") ? "/" : "\\";
         const map = new Map<string, string>();
         for (const f of result) {
-          const absPath = rootPath + sep + f.path.replace(/\//g, sep);
+          const absPath = rootPath + SEP + normalizePath(f.path);
           map.set(absPath, f.status);
         }
         setFileStatuses(map);

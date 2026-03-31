@@ -1,5 +1,6 @@
 import { useAppState, useAppDispatch } from "../state/context";
 import type { DefaultLlm, DefaultShell, TabOverflowMode } from "../types";
+import { IS_WINDOWS, IS_MAC } from "../utils/platform";
 
 const THEMES = [
   { id: "tokyo-night", name: "Tokyo Night" },
@@ -43,8 +44,6 @@ const THEMES = [
   { id: "vitesse-dark", name: "Vitesse Dark" },
 ];
 
-const IS_WINDOWS = navigator.platform.startsWith("Win");
-const IS_MAC = navigator.platform.startsWith("Mac");
 
 const SHELL_OPTIONS = IS_WINDOWS
   ? [

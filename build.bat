@@ -4,12 +4,11 @@ echo  Tride - Build
 echo ============================================
 echo.
 
-set PATH=C:\msys64\mingw64\bin;%USERPROFILE%\.cargo\bin;%PATH%
-cd /d C:\DEV\Tride
+cd /d "%~dp0"
 
 if not exist "node_modules" (
     echo [Tride] Installing dependencies...
-    call npm install || goto :fail
+    call bun install || goto :fail
 )
 
 echo [Tride] Building...

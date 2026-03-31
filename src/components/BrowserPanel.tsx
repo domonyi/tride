@@ -125,7 +125,7 @@ export function BrowserPanel() {
             ref={iframeRef}
             src={url}
             className="browser-iframe"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+            sandbox="allow-scripts allow-forms"
             title="Browser Preview"
           />
         )}

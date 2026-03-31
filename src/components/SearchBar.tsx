@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { SEP, normalizePath } from "../utils/platform";
 
 interface SearchBarProps {
   rootPath: string;
@@ -116,8 +117,7 @@ export function SearchBar({ rootPath, onFileSelect, onClose }: SearchBarProps) {
 
   const selectFile = useCallback(
     (path: string) => {
-      const sep = rootPath.includes("\\") ? "\\" : "/";
-      const fullPath = rootPath + sep + path.replace(/\//g, sep);
+      const fullPath = rootPath + SEP + normalizePath(path);
       onFileSelect(fullPath);
       onClose();
     },

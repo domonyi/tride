@@ -4,3 +4,5 @@ target/
 .vite/
 *.log
 .tride-lsp-debug.txt
+pty-escape-sequences.log
+package-lock.json

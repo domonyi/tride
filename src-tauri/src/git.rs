@@ -239,7 +239,7 @@ pub fn current_branch(cwd: &str) -> Result<String, String> {
 
 /// Stage a file (or all with ".")
 pub fn stage(cwd: &str, path: &str) -> Result<(), String> {
-    run_git(cwd, &["add", path])?;
+    run_git(cwd, &["add", "--", path])?;
     Ok(())
 }
 
@@ -264,6 +264,9 @@ pub fn push(cwd: &str) -> Result<String, String> {
 
 /// Get files changed in a specific commit
 pub fn commit_files(cwd: &str, hash: &str) -> Result<Vec<GitFileStatus>, String> {
+    if hash.starts_with('-') {
+        return Err("Invalid commit hash".to_string());
+    }
     let output = run_git(cwd, &["diff-tree", "--no-commit-id", "-r", "--name-status", hash])?;
     let mut files = Vec::new();
     for line in output.lines() {
@@ -293,18 +296,27 @@ pub fn show_file_at_parent(cwd: &str, hash: &str, file_path: &str) -> Result<Str
 
 /// Switch to a branch
 pub fn checkout_branch(cwd: &str, branch: &str) -> Result<String, String> {
+    if branch.starts_with('-') {
+        return Err("Invalid branch name".to_string());
+    }
     let output = run_git(cwd, &["checkout", branch])?;
     Ok(output.trim().to_string())
 }
 
 /// Create and switch to a new branch
 pub fn create_branch(cwd: &str, branch: &str) -> Result<String, String> {
+    if branch.starts_with('-') {
+        return Err("Invalid branch name".to_string());
+    }
     let output = run_git(cwd, &["checkout", "-b", branch])?;
     Ok(output.trim().to_string())
 }
 
 /// Delete a branch
 pub fn delete_branch(cwd: &str, branch: &str) -> Result<String, String> {
+    if branch.starts_with('-') {
+        return Err("Invalid branch name".to_string());
+    }
     let output = run_git(cwd, &["branch", "-d", branch])?;
     Ok(output.trim().to_string())
 }
@@ -320,6 +332,9 @@ pub struct WorktreeInfo {
 /// Create a git worktree for the given branch at the specified path.
 /// If the branch doesn't exist, creates a new branch from HEAD.
 pub fn worktree_add(cwd: &str, branch: &str, worktree_path: &str) -> Result<WorktreeInfo, String> {
+    if branch.starts_with('-') {
+        return Err("Invalid branch name".to_string());
+    }
     // Check if branch already exists
     let branches_output = run_git(cwd, &["branch", "--list", branch])?;
     let branch_exists = branches_output.lines().any(|l| l.trim().trim_start_matches("* ") == branch);

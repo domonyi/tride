@@ -75,6 +75,18 @@ impl PtyManager {
         };
         let shell_cmd = shell.unwrap_or(default_shell);
 
+        // Only allow known shells to prevent arbitrary command execution
+        const ALLOWED_SHELLS: &[&str] = &[
+            "powershell.exe", "powershell", "pwsh.exe", "pwsh",
+            "cmd.exe", "cmd",
+            "bash", "/bin/bash", "/usr/bin/bash",
+            "zsh", "/bin/zsh", "/usr/bin/zsh",
+            "fish", "/usr/bin/fish", "/usr/local/bin/fish",
+        ];
+        if !ALLOWED_SHELLS.iter().any(|&s| s == shell_cmd) {
+            return Err(format!("Shell not allowed: {}", shell_cmd));
+        }
+
         let mut cmd = CommandBuilder::new(shell_cmd);
         cmd.cwd(cwd);
 

@@ -118,7 +118,7 @@ impl LspManager {
             std::thread::spawn(move || {
                 let mut reader = BufReader::new(stderr);
                 let mut buf = String::new();
-                let path = format!("C:/DEV/.lsp-stderr-{}.txt", stderr_id.replace(|c: char| !c.is_alphanumeric(), "-"));
+                let path = format!("{}/.lsp-stderr-{}.txt", std::env::temp_dir().display(), stderr_id.replace(|c: char| !c.is_alphanumeric(), "-"));
                 loop {
                     buf.clear();
                     match reader.read_line(&mut buf) {
@@ -159,7 +159,7 @@ impl LspManager {
         alive: &std::sync::atomic::AtomicBool,
     ) {
         // Debug log file
-        let debug_path = format!("C:/DEV/.lsp-rust-reader-{}.txt", id.replace(|c: char| !c.is_alphanumeric(), "-"));
+        let debug_path = format!("{}/.lsp-rust-reader-{}.txt", std::env::temp_dir().display(), id.replace(|c: char| !c.is_alphanumeric(), "-"));
         let mut debug_lines = Vec::new();
         let write_debug = |lines: &[String]| {
             let _ = std::fs::write(&debug_path, lines.join("\n"));

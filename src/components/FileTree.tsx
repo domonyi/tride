@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { SEP, parentPath as getParent } from "../utils/platform";
 
 interface FileEntry {
   name: string;
@@ -179,10 +180,7 @@ function getFolderIconUrl(name: string, open: boolean): string {
 }
 
 function getParentPath(filePath: string): string {
-  const sep = filePath.includes("/") ? "/" : "\\";
-  const parts = filePath.split(sep);
-  parts.pop();
-  return parts.join(sep);
+  return getParent(filePath);
 }
 
 /* ── Components ──────────────────────────────────────────────────────── */
@@ -271,16 +269,15 @@ export function FileTree({ rootPath, onFileSelect, selectedFile, expandedFolders
       setInlineInput(null);
       return;
     }
-    const sep = inlineInput.parentPath.includes("/") ? "/" : "\\";
     try {
       if (inlineInput.kind === "rename" && inlineInput.entry) {
-        const newPath = inlineInput.parentPath + sep + value.trim();
+        const newPath = inlineInput.parentPath + SEP + value.trim();
         await invoke("rename_entry", { oldPath: inlineInput.entry.path, newPath });
       } else if (inlineInput.kind === "new-file") {
-        const newPath = inlineInput.parentPath + sep + value.trim();
+        const newPath = inlineInput.parentPath + SEP + value.trim();
         await invoke("create_file", { path: newPath });
       } else if (inlineInput.kind === "new-folder") {
-        const newPath = inlineInput.parentPath + sep + value.trim();
+        const newPath = inlineInput.parentPath + SEP + value.trim();
         await invoke("create_dir", { path: newPath });
       }
       triggerRefresh();

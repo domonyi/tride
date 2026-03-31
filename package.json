@@ -1,7 +1,12 @@
 {
   "name": "tride",
-  "private": true,
   "version": "0.1.0",
+  "description": "A minimal, terminal-centric IDE built with Tauri, React, and Rust",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/domonyi/tride"
+  },
   "type": "module",
   "workspaces": [
     "src/marketing"
