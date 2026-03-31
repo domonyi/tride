@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,6 +57,16 @@ pub fn read_file_base64(path: &str) -> Result<String, String> {
 
 pub fn write_file(path: &str, content: &str) -> Result<(), String> {
     fs::write(path, content).map_err(|e| format!("Failed to write file: {}", e))
+}
+
+pub fn append_file(path: &str, content: &str) -> Result<(), String> {
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .map_err(|e| format!("Failed to open file for append: {}", e))?;
+    file.write_all(content.as_bytes())
+        .map_err(|e| format!("Failed to append to file: {}", e))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

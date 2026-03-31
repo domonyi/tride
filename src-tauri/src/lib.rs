@@ -76,6 +76,11 @@ fn write_file(path: String, content: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn append_file(path: String, content: String) -> Result<(), String> {
+    fs::append_file(&path, &content)
+}
+
+#[tauri::command]
 async fn read_dts_files(base_dir: String, package_name: String) -> Result<Vec<fs::DtsFile>, String> {
     tokio::task::spawn_blocking(move || fs::read_dts_files(&base_dir, &package_name))
         .await
@@ -394,6 +399,7 @@ pub fn run() {
             read_file,
             read_file_base64,
             write_file,
+            append_file,
             read_dts_files,
             read_project_sources,
             read_all_node_types,

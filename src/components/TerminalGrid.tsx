@@ -33,9 +33,20 @@ export function TerminalGrid() {
               display: isActive ? "grid" : "none",
             }}
           >
-            {project.terminals.map((terminal) => (
-              <TerminalPane key={terminal.id} terminal={terminal} />
-            ))}
+            {project.terminals
+              .filter((t) => {
+                // Hide child terminals – they are rendered inside their parent's split container
+                if (t.splitParentId) return false;
+                if (!isActive || !state.activeGroupId) return true;
+                const activeGroup = (project.terminalGroups ?? []).find(
+                  (g) => g.id === state.activeGroupId
+                );
+                if (!activeGroup) return true;
+                return activeGroup.terminalIds.includes(t.id);
+              })
+              .map((terminal) => (
+                <TerminalPane key={terminal.id} terminal={terminal} />
+              ))}
           </div>
         );
       })}

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { DiffEditor, type BeforeMount } from "@monaco-editor/react";
 import { invoke } from "@tauri-apps/api/core";
 import { useAppState, useAppDispatch } from "../state/context";
+import { initShiki } from "../shiki";
 
 interface GitFileStatus {
   path: string;
@@ -31,6 +32,8 @@ type DiffTarget =
   | { kind: "working"; file: string; staged: boolean }
   | { kind: "commit"; hash: string; file: string };
 
+const CHANGES_MAX_HEIGHT = 340;
+
 const defineTheme: BeforeMount = (monaco) => {
   monaco.editor.defineTheme("tride-dark", {
     base: "vs-dark",
@@ -52,6 +55,9 @@ const defineTheme: BeforeMount = (monaco) => {
       "scrollbarSlider.background": "#868bc415",
       "scrollbarSlider.hoverBackground": "#868bc410",
       "scrollbarSlider.activeBackground": "#868bc422",
+      "editorOverviewRuler.addedForeground": "#41a6b5cc",
+      "editorOverviewRuler.deletedForeground": "#db4b4bcc",
+      "editorOverviewRuler.modifiedForeground": "#e0af68cc",
     },
   });
 
@@ -153,8 +159,6 @@ export function SourceControl() {
   const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
   const [commitDropdownOpen, setCommitDropdownOpen] = useState(false);
   const commitDropdownRef = useRef<HTMLDivElement>(null);
-  const [stagedOpen, setStagedOpen] = useState(true);
-  const [unstagedOpen, setUnstagedOpen] = useState(true);
   const changesHeight = state.scmChangesHeight;
   const setChangesHeight = useCallback((h: number | null) => {
     dispatch({ type: "SET_SCM_CHANGES_HEIGHT", height: h });
@@ -223,6 +227,20 @@ export function SourceControl() {
     const id = setInterval(refresh, 2000);
     return () => clearInterval(id);
   }, [isVisible, view, refresh]);
+
+  // Auto-minimize changes list when there are no changes, auto-expand when changes appear
+  const prevFilesLen = useRef<number | null>(null);
+  useEffect(() => {
+    const prev = prevFilesLen.current;
+    prevFilesLen.current = files.length;
+    // Skip the very first render — respect the restored session height
+    if (prev === null) return;
+    if (files.length === 0) {
+      setChangesHeight(0);
+    } else if (prev === 0 && changesHeight === 0) {
+      setChangesHeight(null);
+    }
+  }, [files.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   // Open diff for a working tree file
@@ -399,24 +417,13 @@ export function SourceControl() {
     } catch (e) { setActionOutput(`Error: ${e}`); }
   }, [cwd, refreshBranches]);
 
-  const toggleStaged = useCallback(() => {
-    setStagedOpen((prev) => !prev);
-    setChangesHeight(null);
-  }, [setChangesHeight]);
-
-  const toggleUnstaged = useCallback(() => {
-    setUnstagedOpen((prev) => !prev);
-    setChangesHeight(null);
-  }, [setChangesHeight]);
-
   const onResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     const startY = e.clientY;
     const startH = changesRef.current?.offsetHeight ?? 200;
-    // Measure natural content height from the inner wrapper
-    const maxH = changesInnerRef.current?.offsetHeight ?? Infinity;
+    const maxH = CHANGES_MAX_HEIGHT;
     const onMove = (ev: MouseEvent) => {
-      setChangesHeight(Math.min(maxH, Math.max(30, startH + (ev.clientY - startY))));
+      setChangesHeight(Math.min(maxH, Math.max(0, startH + (ev.clientY - startY))));
     };
     const onUp = () => {
       document.removeEventListener("mousemove", onMove);
@@ -467,33 +474,29 @@ export function SourceControl() {
         {view === "changes" && (
           <>
             {/* Resizable file list */}
-            <div className="scm-changes-list" ref={changesRef} style={changesHeight != null ? { height: changesHeight } : undefined}>
+            <div className="scm-changes-list" ref={changesRef} style={changesHeight != null ? { height: changesHeight, maxHeight: CHANGES_MAX_HEIGHT } : { maxHeight: CHANGES_MAX_HEIGHT }}>
               <div className="scm-changes-inner" ref={changesInnerRef}>
                 {/* Staged section */}
                 {stagedFiles.length > 0 && (
                   <>
-                    <div className="scm-section-header scm-accordion-header" onClick={toggleStaged}>
-                      <span className={`scm-accordion-arrow ${stagedOpen ? "open" : ""}`}>&#9654;</span>
+                    <div className="scm-section-header">
                       <span>Staged Changes ({stagedFiles.length})</span>
                     </div>
-                    {stagedOpen && (
-                      <div className="scm-file-list">
-                        {stagedFiles.map((f, i) => (
-                          <div key={`s-${i}`} className={`scm-file ${diffTarget?.kind === "working" && diffFile === f.path ? "selected" : ""}`} onClick={() => openWorkingDiff(f.path, true)}>
-                            <span className="scm-file-indicator" style={{ background: statusColor(f.status) }} />
-                            <span className="scm-file-status" style={{ color: statusColor(f.status) }}>{statusIcon(f.status)}</span>
-                            <span className="scm-file-path">{f.path}</span>
-                            <button className="scm-file-action" onClick={(e) => { e.stopPropagation(); unstageFile(f.path); }} title="Unstage">&minus;</button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    <div className="scm-file-list">
+                      {stagedFiles.map((f, i) => (
+                        <div key={`s-${i}`} className={`scm-file ${diffTarget?.kind === "working" && diffFile === f.path ? "selected" : ""}`} onClick={() => openWorkingDiff(f.path, true)}>
+                          <span className="scm-file-indicator" style={{ background: statusColor(f.status) }} />
+                          <span className="scm-file-status" style={{ color: statusColor(f.status) }}>{statusIcon(f.status)}</span>
+                          <span className="scm-file-path">{f.path}</span>
+                          <button className="scm-file-action" onClick={(e) => { e.stopPropagation(); unstageFile(f.path); }} title="Unstage">&minus;</button>
+                        </div>
+                      ))}
+                    </div>
                   </>
                 )}
 
                 {/* Unstaged section */}
-                <div className="scm-section-header scm-accordion-header" onClick={toggleUnstaged}>
-                  <span className={`scm-accordion-arrow ${unstagedOpen ? "open" : ""}`}>&#9654;</span>
+                <div className="scm-section-header">
                   <span>Changes ({unstagedFiles.length})</span>
                   {unstagedFiles.length > 0 && (
                     <>
@@ -502,19 +505,17 @@ export function SourceControl() {
                     </>
                   )}
                 </div>
-                {unstagedOpen && (
-                  <div className="scm-file-list">
-                    {unstagedFiles.map((f, i) => (
-                      <div key={`u-${i}`} className={`scm-file ${diffTarget?.kind === "working" && diffFile === f.path ? "selected" : ""}`} onClick={() => openWorkingDiff(f.path, false)}>
-                        <span className="scm-file-indicator" style={{ background: statusColor(f.status) }} />
-                        <span className="scm-file-status" style={{ color: statusColor(f.status) }}>{statusIcon(f.status)}</span>
-                        <span className="scm-file-path">{f.path}</span>
-                        <button className="scm-file-action" onClick={(e) => { e.stopPropagation(); discardFile(f.path); }} title="Discard Changes">&#x21A9;</button>
-                        <button className="scm-file-action" onClick={(e) => { e.stopPropagation(); stageFile(f.path); }} title="Stage">+</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div className="scm-file-list">
+                  {unstagedFiles.map((f, i) => (
+                    <div key={`u-${i}`} className={`scm-file ${diffTarget?.kind === "working" && diffFile === f.path ? "selected" : ""}`} onClick={() => openWorkingDiff(f.path, false)}>
+                      <span className="scm-file-indicator" style={{ background: statusColor(f.status) }} />
+                      <span className="scm-file-status" style={{ color: statusColor(f.status) }}>{statusIcon(f.status)}</span>
+                      <span className="scm-file-path">{f.path}</span>
+                      <button className="scm-file-action" onClick={(e) => { e.stopPropagation(); discardFile(f.path); }} title="Discard Changes">&#x21A9;</button>
+                      <button className="scm-file-action" onClick={(e) => { e.stopPropagation(); stageFile(f.path); }} title="Stage">+</button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -654,8 +655,9 @@ export function SourceControl() {
                   language={getLanguage(diffTarget.file)}
                   original={originalContent}
                   modified={modifiedContent}
-                  theme="tokyo-night"
+                  theme="tride-dark"
                   beforeMount={defineTheme}
+                  onMount={(_editor, monaco) => { initShiki(monaco, state.editorTheme); }}
                   loading={<div className="code-editor-loading">Loading...</div>}
                   options={{
                     readOnly: true,
@@ -664,9 +666,9 @@ export function SourceControl() {
                     scrollBeyondLastLine: false,
                     fontSize: 13,
                     fontFamily: "'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, monospace",
-                    renderOverviewRuler: false,
+                    renderOverviewRuler: true,
                     padding: { top: 4 },
-                    scrollbar: { verticalScrollbarSize: 8, horizontalScrollbarSize: 8 },
+                    scrollbar: { verticalScrollbarSize: 14, horizontalScrollbarSize: 8 },
                     automaticLayout: true,
                   }}
                 />

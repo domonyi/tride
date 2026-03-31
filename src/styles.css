@@ -27,6 +27,7 @@
   --yellow: #e0af68;
   --cyan: #7dcfff;
   --magenta: #bb9af7;
+  --experimental: #22d3ee;
   --radius: 6px;
   --radius-sm: 4px;
 }
@@ -95,6 +96,42 @@ input, textarea, .xterm, .monaco-editor {
 
 .title-bar-settings:hover {
   color: var(--text-primary);
+}
+
+.title-bar-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 22px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  width: clamp(240px, 40vw, 480px);
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.title-bar-search:hover {
+  border-color: var(--text-muted);
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-primary) 80%, var(--text-muted));
+}
+
+.title-bar-search-text {
+  flex: 1;
+  text-align: left;
+  font-size: 11.5px;
+}
+
+.title-bar-search-shortcut {
+  font-size: 10px;
+  opacity: 0.5;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 4px;
 }
 
 .title-bar-controls {
@@ -250,12 +287,66 @@ input, textarea, .xterm, .monaco-editor {
   flex-shrink: 0;
 }
 
+/* ── Tab Overflow Wrappers ──────────────────────────────────────────── */
+.project-tabs-wrapper,
+.terminal-tabs-wrapper {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.project-tabs-wrapper {
+  border-bottom: 1px solid var(--border);
+}
+
+.project-tabs-wrapper.multiline,
+.terminal-tabs-wrapper.multiline {
+  /* no special wrapper styles needed for multiline */
+}
+
+.tab-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  min-width: 22px;
+  height: 100%;
+  background: var(--bg-secondary);
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 18px;
+  padding: 0;
+  z-index: 2;
+  transition: color 0.15s, background 0.15s;
+}
+
+.tab-arrow:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
 .project-tabs {
   display: flex;
   align-items: center;
   gap: 2px;
   padding: 4px 8px 0;
-  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  flex: 1;
+  min-width: 0;
+}
+
+.project-tabs:not(.multiline) {
+  scrollbar-width: none;
+}
+
+.project-tabs:not(.multiline)::-webkit-scrollbar {
+  display: none;
+}
+
+.project-tabs.multiline {
+  flex-wrap: wrap;
+  overflow-x: visible;
 }
 
 .project-tab {
@@ -283,6 +374,7 @@ input, textarea, .xterm, .monaco-editor {
   color: var(--text-primary);
   background: var(--bg-primary);
   border-color: var(--border);
+  border-top: 2px solid var(--accent);
 }
 
 .project-tab.tab-dragging {
@@ -326,6 +418,90 @@ input, textarea, .xterm, .monaco-editor {
   color: var(--accent);
 }
 
+/* ── Project Groups ────────────────────────────────────────────────── */
+/* ── Project Context Menu ───────────────────────────────────────────── */
+.project-ctx-menu {
+  position: fixed;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  min-width: 160px;
+  padding: 4px 0;
+}
+
+.project-ctx-menu .ctx-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  position: relative;
+}
+
+.project-ctx-menu .ctx-menu-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.project-ctx-menu .ctx-menu-item.active {
+  color: var(--accent);
+}
+
+.project-ctx-menu .ctx-menu-item.danger:hover {
+  color: var(--red);
+}
+
+.project-ctx-menu .ctx-menu-separator {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 8px;
+}
+
+.ctx-submenu-arrow {
+  font-size: 8px;
+  margin-left: 8px;
+  opacity: 0.5;
+}
+
+.ctx-submenu {
+  position: absolute;
+  left: 100%;
+  top: -4px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  min-width: 140px;
+  padding: 4px 0;
+  z-index: 1001;
+}
+
+.ctx-submenu .ctx-menu-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.ctx-submenu .ctx-menu-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.ctx-submenu.color-submenu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px;
+  min-width: auto;
+}
+
 /* ── Project Color Picker ────────────────────────────────────────────── */
 .color-picker-popup {
   position: fixed;
@@ -353,6 +529,112 @@ input, textarea, .xterm, .monaco-editor {
   transform: scale(1.2);
 }
 
+/* ── Group Tabs ─────────────────────────────────────────────────────── */
+.group-tabs-wrapper {
+  display: flex;
+  align-items: center;
+  position: relative;
+  border-bottom: 1px solid var(--border);
+}
+
+.group-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 8px;
+  overflow-x: auto;
+  flex: 1;
+  min-width: 0;
+}
+
+.group-tabs:not(.multiline) {
+  scrollbar-width: none;
+}
+
+.group-tabs:not(.multiline)::-webkit-scrollbar {
+  display: none;
+}
+
+.group-tabs.multiline {
+  flex-wrap: wrap;
+  overflow-x: visible;
+}
+
+.group-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.group-tab:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.group-tab.active {
+  color: var(--text-primary);
+  background: var(--bg-active);
+  border-color: var(--text-muted);
+}
+
+.group-tab .tab-count {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-hover);
+  padding: 0 5px;
+  border-radius: 8px;
+  line-height: 16px;
+}
+
+.group-tab .close-btn {
+  opacity: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.15s;
+}
+
+.group-tab:hover .close-btn {
+  opacity: 1;
+}
+
+.group-tab .close-btn:hover {
+  color: var(--red);
+  background: rgba(247, 118, 142, 0.15);
+}
+
+.group-tab.add-tab {
+  color: var(--text-muted);
+  font-size: 11px;
+  border: 1px dashed var(--border);
+}
+
+.group-tab.add-tab:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.group-tab.tab-dragging {
+  opacity: 0.85;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  position: relative;
+  cursor: grabbing;
+}
+
 /* ── Terminal Tabs ───────────────────────────────────────────────────── */
 .terminal-tabs {
   display: flex;
@@ -360,6 +642,21 @@ input, textarea, .xterm, .monaco-editor {
   gap: 2px;
   padding: 4px 8px;
   overflow-x: auto;
+  flex: 1;
+  min-width: 0;
+}
+
+.terminal-tabs:not(.multiline) {
+  scrollbar-width: none;
+}
+
+.terminal-tabs:not(.multiline)::-webkit-scrollbar {
+  display: none;
+}
+
+.terminal-tabs.multiline {
+  flex-wrap: wrap;
+  overflow-x: visible;
 }
 
 .terminal-tab {
@@ -434,6 +731,32 @@ input, textarea, .xterm, .monaco-editor {
   border-color: var(--accent);
 }
 
+/* ── Terminal Context Menu ──────────────────────────────────────────── */
+.terminal-ctx-menu {
+  position: fixed;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  min-width: 160px;
+  padding: 4px 0;
+}
+
+.terminal-ctx-menu .ctx-menu-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.terminal-ctx-menu .ctx-menu-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 /* ── Status Dot ──────────────────────────────────────────────────────── */
 .status-dot {
   width: 7px;
@@ -453,6 +776,12 @@ input, textarea, .xterm, .monaco-editor {
   animation: pulse 1.5s ease-in-out infinite;
 }
 
+.status-dot.waiting {
+  background: var(--yellow);
+  box-shadow: 0 0 6px var(--yellow);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
 .status-dot.done {
   background: var(--green);
 }
@@ -469,6 +798,29 @@ input, textarea, .xterm, .monaco-editor {
   50% {
     opacity: 0.4;
   }
+}
+
+.tab-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  line-height: 1;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tab-badge.llm {
+  background: rgba(187, 154, 247, 0.2);
+  color: var(--magenta);
+  border: 1px solid rgba(187, 154, 247, 0.3);
+}
+
+.tab-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
 }
 
 /* ── Main Area (terminal grid + sidebar) ─────────────────────────────── */
@@ -563,7 +915,87 @@ input, textarea, .xterm, .monaco-editor {
 .terminal-pane-changes {
   color: var(--green);
   font-size: 11px;
+}
+
+.terminal-pane-spacer {
   margin-left: auto;
+}
+
+.terminal-split-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.1s, background 0.1s;
+}
+
+.terminal-split-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.terminal-split-container,
+.terminal-nosplit-container {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+
+.terminal-split-container.horizontal {
+  flex-direction: column;
+}
+
+.terminal-split-container.vertical {
+  flex-direction: row;
+}
+
+.terminal-split-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.terminal-split-pane.focused {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+  border-radius: 2px;
+}
+
+.terminal-split-divider {
+  flex-shrink: 0;
+  background: var(--border);
+}
+
+.terminal-split-container.horizontal > .terminal-split-divider {
+  height: 2px;
+  cursor: ns-resize;
+}
+
+.terminal-split-container.vertical > .terminal-split-divider {
+  width: 2px;
+  cursor: ew-resize;
+}
+
+.terminal-split-pane-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  flex-shrink: 0;
 }
 
 .terminal-pane-body {
@@ -579,6 +1011,19 @@ input, textarea, .xterm, .monaco-editor {
 
 .terminal-pane-body .xterm-viewport {
   overflow-y: auto !important;
+}
+
+/* Drag-and-drop feedback */
+.terminal-pane-body.drop-active {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+  background: rgba(122, 162, 247, 0.06);
+}
+
+.code-editor-layout.drop-active {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+  background: rgba(122, 162, 247, 0.06);
 }
 
 /* ── Sidebar ─────────────────────────────────────────────────────────── */
@@ -754,6 +1199,124 @@ input, textarea, .xterm, .monaco-editor {
   background: rgba(247, 118, 142, 0.15);
 }
 
+/* Breadcrumbs */
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  padding: 3px 12px;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow-x: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.breadcrumbs::-webkit-scrollbar {
+  display: none;
+}
+
+.breadcrumb-item {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.breadcrumb-sep {
+  margin: 0 5px;
+  color: var(--text-muted);
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.breadcrumb-label {
+  cursor: pointer;
+  padding: 1px 3px;
+  border-radius: 3px;
+  transition: color 0.1s, background 0.1s;
+}
+
+.breadcrumb-label:hover:not(.active) {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.breadcrumb-label.active,
+.breadcrumb-label.dropdown-open {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.breadcrumb-dropdown-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+
+.breadcrumb-dropdown {
+  position: fixed;
+  min-width: 200px;
+  max-width: 350px;
+  max-height: 300px;
+  overflow-y: auto;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  padding: 4px 0;
+  z-index: 1001;
+  font-size: 12px;
+}
+
+.breadcrumb-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.breadcrumb-dropdown::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}
+
+.breadcrumb-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.breadcrumb-dropdown-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.breadcrumb-dropdown-item.active {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.breadcrumb-dropdown-item.empty {
+  color: var(--text-muted);
+  cursor: default;
+  font-style: italic;
+}
+
+.breadcrumb-dropdown-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+}
+
+.breadcrumb-dropdown-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .code-editor-empty {
   display: flex;
   align-items: center;
@@ -899,6 +1462,17 @@ input, textarea, .xterm, .monaco-editor {
 .file-tree-name {
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.file-tree-status {
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-right: 4px;
+  opacity: 0.9;
 }
 
 .file-tree-inline-input {
@@ -962,12 +1536,12 @@ input, textarea, .xterm, .monaco-editor {
 }
 
 .search-bar {
-  width: 520px;
-  max-height: 420px;
+  width: min(680px, 90vw);
+  max-height: 460px;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -976,12 +1550,12 @@ input, textarea, .xterm, .monaco-editor {
 
 .search-bar-input {
   width: 100%;
-  padding: 10px 14px;
+  padding: 12px 16px;
   background: var(--bg-primary);
   border: none;
   border-bottom: 1px solid var(--border);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 15px;
   font-family: inherit;
   outline: none;
 }
@@ -1633,8 +2207,8 @@ input, textarea, .xterm, .monaco-editor {
   padding: 5px 12px;
   border: none;
   border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-  background: var(--accent);
-  color: var(--bg-primary);
+  background: #fff;
+  color: #000;
   cursor: pointer;
   font-size: 11px;
   font-weight: 600;
@@ -1642,7 +2216,7 @@ input, textarea, .xterm, .monaco-editor {
 }
 
 .scm-commit-btn:hover:not(:disabled) {
-  background: var(--accent-hover);
+  background: #e0e0e0;
 }
 
 .scm-commit-btn:disabled {
@@ -1671,15 +2245,15 @@ input, textarea, .xterm, .monaco-editor {
   border: none;
   border-left: 1px solid rgba(0, 0, 0, 0.2);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  background: var(--accent);
-  color: var(--bg-primary);
+  background: #fff;
+  color: #000;
   cursor: pointer;
   font-size: 8px;
   transition: all 0.15s;
 }
 
 .scm-commit-dropdown-toggle:hover:not(:disabled) {
-  background: var(--accent-hover);
+  background: #e0e0e0;
 }
 
 .scm-commit-dropdown-toggle:disabled {
@@ -1973,4 +2547,198 @@ input, textarea, .xterm, .monaco-editor {
 .browser-retry-btn:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
+}
+
+/* ── Todo Panel ──────────────────────────────────────────────────────── */
+.todo-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.todo-input-row {
+  display: flex;
+  gap: 4px;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.todo-input {
+  flex: 1;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 12px;
+  padding: 5px 8px;
+  outline: none;
+}
+
+.todo-input:focus {
+  border-color: var(--accent);
+}
+
+.todo-add-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 8px;
+  transition: all 0.15s;
+}
+
+.todo-add-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.todo-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.todo-empty {
+  padding: 24px 8px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.todo-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  transition: background 0.1s;
+}
+
+.todo-grip {
+  cursor: grab;
+  color: var(--text-muted);
+  opacity: 0;
+  font-size: 10px;
+  line-height: 1;
+  user-select: none;
+  touch-action: none;
+  flex-shrink: 0;
+}
+
+.todo-item:hover .todo-grip {
+  opacity: 0.6;
+}
+
+.todo-grip:hover {
+  opacity: 1 !important;
+  color: var(--text);
+}
+
+.todo-item.todo-dragging {
+  opacity: 0.4;
+}
+
+.todo-item:hover {
+  background: var(--bg-hover);
+}
+
+.todo-item.todo-drag-over {
+  border-top: 2px solid var(--accent);
+}
+
+.todo-item.done .todo-text {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.todo-check {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1.5px solid var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s;
+}
+
+.todo-check:hover {
+  border-color: var(--accent);
+}
+
+.todo-check.checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.todo-text {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-primary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.todo-edit-input {
+  flex: 1;
+  background: var(--bg-surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 12px;
+  padding: 1px 4px;
+  outline: none;
+}
+
+.todo-delete {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  opacity: 0;
+  transition: all 0.15s;
+}
+
+.todo-item:hover .todo-delete {
+  opacity: 1;
+}
+
+.todo-delete:hover {
+  color: #e06c75;
+}
+
+.todo-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 8px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.3px;
+}
+
+.todo-clear-done {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.todo-clear-done:hover {
+  color: var(--text-secondary);
 }

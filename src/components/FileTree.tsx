@@ -8,10 +8,19 @@ interface FileEntry {
   is_dir: boolean;
 }
 
+interface GitFileStatus {
+  path: string;
+  status: string;
+  staged: boolean;
+}
+
 interface FileTreeProps {
   rootPath: string;
   onFileSelect: (path: string) => void;
   selectedFile: string | null;
+  expandedFolders: Set<string>;
+  onToggleFolder: (path: string) => void;
+  fileStatuses?: Map<string, string>;
 }
 
 interface ContextMenu {
@@ -178,7 +187,7 @@ function getParentPath(filePath: string): string {
 
 /* ── Components ──────────────────────────────────────────────────────── */
 
-export function FileTree({ rootPath, onFileSelect, selectedFile }: FileTreeProps) {
+export function FileTree({ rootPath, onFileSelect, selectedFile, expandedFolders, onToggleFolder, fileStatuses }: FileTreeProps) {
   const [ctxMenu, setCtxMenu] = useState<ContextMenu | null>(null);
   const [inlineInput, setInlineInput] = useState<InlineInput | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -298,6 +307,9 @@ export function FileTree({ rootPath, onFileSelect, selectedFile }: FileTreeProps
           onInlineSubmit={handleInlineSubmit}
           onInlineCancel={() => setInlineInput(null)}
           defaultOpen
+          expandedFolders={expandedFolders}
+          onToggleFolder={onToggleFolder}
+          fileStatuses={fileStatuses}
         />
       </div>
 
@@ -396,6 +408,9 @@ function DirectoryNode({
   onInlineSubmit,
   onInlineCancel,
   defaultOpen = false,
+  expandedFolders,
+  onToggleFolder,
+  fileStatuses,
 }: {
   path: string;
   depth: number;
@@ -406,6 +421,9 @@ function DirectoryNode({
   onInlineSubmit: (value: string) => void;
   onInlineCancel: () => void;
   defaultOpen?: boolean;
+  expandedFolders: Set<string>;
+  onToggleFolder: (path: string) => void;
+  fileStatuses?: Map<string, string>;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [entries, setEntries] = useState<FileEntry[]>([]);
@@ -448,6 +466,9 @@ function DirectoryNode({
             inlineInput={inlineInput}
             onInlineSubmit={onInlineSubmit}
             onInlineCancel={onInlineCancel}
+            expandedFolders={expandedFolders}
+            onToggleFolder={onToggleFolder}
+            fileStatuses={fileStatuses}
           />
         ) : inlineInput?.kind === "rename" && inlineInput.entry?.path === entry.path ? (
           <InlineNameInput key={entry.path} defaultValue={entry.name} onSubmit={onInlineSubmit} onCancel={onInlineCancel} depth={depth} />
@@ -459,6 +480,7 @@ function DirectoryNode({
             onFileSelect={onFileSelect}
             isSelected={selectedFile === entry.path}
             onContextMenu={onContextMenu}
+            fileStatuses={fileStatuses}
           />
         )
       )}
@@ -466,12 +488,14 @@ function DirectoryNode({
   );
 }
 
-function FolderItem({ entry, depth, onFileSelect, selectedFile, onContextMenu, inlineInput, onInlineSubmit, onInlineCancel }: {
+function FolderItem({ entry, depth, onFileSelect, selectedFile, onContextMenu, inlineInput, onInlineSubmit, onInlineCancel, expandedFolders, onToggleFolder, fileStatuses }: {
   entry: FileEntry; depth: number; onFileSelect: (path: string) => void; selectedFile: string | null;
   onContextMenu: (e: React.MouseEvent, entry: FileEntry) => void;
   inlineInput: InlineInput | null; onInlineSubmit: (value: string) => void; onInlineCancel: () => void;
+  expandedFolders: Set<string>; onToggleFolder: (path: string) => void;
+  fileStatuses?: Map<string, string>;
 }) {
-  const [open, setOpen] = useState(false);
+  const open = expandedFolders.has(entry.path);
   const isRenaming = inlineInput?.kind === "rename" && inlineInput.entry?.path === entry.path;
 
   return (
@@ -482,7 +506,7 @@ function FolderItem({ entry, depth, onFileSelect, selectedFile, onContextMenu, i
         <div
           className="file-tree-item folder"
           style={{ paddingLeft: `${12 + depth * 16}px` }}
-          onClick={() => setOpen(!open)}
+          onClick={() => onToggleFolder(entry.path)}
           onContextMenu={(e) => onContextMenu(e, entry)}
         >
           <img className="file-tree-icon" src={getFolderIconUrl(entry.name, open)} alt="" />
@@ -500,16 +524,36 @@ function FolderItem({ entry, depth, onFileSelect, selectedFile, onContextMenu, i
           onInlineSubmit={onInlineSubmit}
           onInlineCancel={onInlineCancel}
           defaultOpen
+          expandedFolders={expandedFolders}
+          onToggleFolder={onToggleFolder}
+          fileStatuses={fileStatuses}
         />
       )}
     </>
   );
 }
 
-function FileItem({ entry, depth, onFileSelect, isSelected, onContextMenu }: {
+function statusColor(s: string): string {
+  switch (s) {
+    case "M": return "var(--yellow)";
+    case "A": case "?": return "var(--green)";
+    case "D": return "var(--red)";
+    case "R": return "var(--cyan)";
+    default: return "var(--text-secondary)";
+  }
+}
+
+function statusLabel(s: string): string {
+  return s === "?" ? "U" : s;
+}
+
+function FileItem({ entry, depth, onFileSelect, isSelected, onContextMenu, fileStatuses }: {
   entry: FileEntry; depth: number; onFileSelect: (path: string) => void; isSelected: boolean;
   onContextMenu: (e: React.MouseEvent, entry: FileEntry) => void;
+  fileStatuses?: Map<string, string>;
 }) {
+  const status = fileStatuses?.get(entry.path);
+
   return (
     <div
       className={`file-tree-item file ${isSelected ? "selected" : ""}`}
@@ -518,7 +562,8 @@ function FileItem({ entry, depth, onFileSelect, isSelected, onContextMenu }: {
       onContextMenu={(e) => onContextMenu(e, entry)}
     >
       <img className="file-tree-icon" src={getFileIconUrl(entry.name)} alt="" />
-      <span className="file-tree-name">{entry.name}</span>
+      <span className="file-tree-name" style={status ? { color: statusColor(status) } : undefined}>{entry.name}</span>
+      {status && <span className="file-tree-status" style={{ color: statusColor(status) }}>{statusLabel(status)}</span>}
     </div>
   );
 }

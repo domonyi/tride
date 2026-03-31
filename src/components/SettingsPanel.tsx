@@ -1,5 +1,5 @@
 import { useAppState, useAppDispatch } from "../state/context";
-import type { DefaultLlm, DefaultShell } from "../types";
+import type { DefaultLlm, DefaultShell, TabOverflowMode } from "../types";
 
 const THEMES = [
   { id: "tokyo-night", name: "Tokyo Night" },
@@ -113,6 +113,23 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                 : state.defaultLlm === "custom"
                 ? "Runs your custom command on terminal start"
                 : `Runs "${state.defaultLlm}" on terminal start`}
+            </span>
+          </div>
+
+          <div className="settings-section">
+            <label className="settings-label">Tab Overflow</label>
+            <select
+              className="settings-select"
+              value={state.tabOverflowMode}
+              onChange={(e) => dispatch({ type: "SET_TAB_OVERFLOW_MODE", mode: e.target.value as TabOverflowMode })}
+            >
+              <option value="arrows">Arrows (scroll with arrows)</option>
+              <option value="multiline">Multiline (show all tabs)</option>
+            </select>
+            <span className="settings-hint">
+              {state.tabOverflowMode === "arrows"
+                ? "Arrow buttons appear when tabs overflow"
+                : "Tabs wrap to multiple lines to show all"}
             </span>
           </div>
 

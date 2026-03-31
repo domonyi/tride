@@ -1,4 +1,4 @@
-import type { AppState, GridLayout, SidebarMode, DefaultLlm, DefaultShell } from "../types";
+import type { AppState, GridLayout, SidebarMode, DefaultLlm, DefaultShell, TabOverflowMode, TodoItem } from "../types";
 
 const KEY = "tride-layout";
 
@@ -19,6 +19,8 @@ export interface LayoutState {
   defaultLlm: DefaultLlm;
   customLlmCommand: string;
   defaultShell: DefaultShell;
+  tabOverflowMode: TabOverflowMode;
+  todos: TodoItem[];
 }
 
 export function loadLayoutState(): Partial<LayoutState> {
@@ -39,6 +41,8 @@ export function saveLayoutState(state: AppState): void {
         terminals: p.terminals.map((t) => ({
           ...t,
           ptyId: null, // don't store PTY handles
+          status: "idle" as const, // don't persist transient status
+          hasActivity: false,
         })),
       })),
       activeProjectId: state.activeProjectId,
@@ -52,6 +56,8 @@ export function saveLayoutState(state: AppState): void {
       defaultLlm: state.defaultLlm,
       customLlmCommand: state.customLlmCommand,
       defaultShell: state.defaultShell,
+      tabOverflowMode: state.tabOverflowMode,
+      todos: state.todos,
     };
     localStorage.setItem(KEY, JSON.stringify(layout));
   } catch {

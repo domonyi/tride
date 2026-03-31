@@ -26,6 +26,13 @@ const CloseIcon = () => (
   </svg>
 );
 
+const SearchIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="8" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </svg>
+);
+
 const SettingsIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="3" />
@@ -33,7 +40,7 @@ const SettingsIcon = () => (
   </svg>
 );
 
-export function TitleBar() {
+export function TitleBar({ onSearchClick }: { onSearchClick?: () => void }) {
   const appWindow = getCurrentWindow();
   const state = useAppState();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -42,6 +49,7 @@ export function TitleBar() {
   const onDragStart = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest(".title-bar-controls")) return;
     if ((e.target as HTMLElement).closest(".title-bar-settings")) return;
+    if ((e.target as HTMLElement).closest(".title-bar-search")) return;
     e.preventDefault();
     appWindow.startDragging();
   };
@@ -49,6 +57,7 @@ export function TitleBar() {
   const onDoubleClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest(".title-bar-controls")) return;
     if ((e.target as HTMLElement).closest(".title-bar-settings")) return;
+    if ((e.target as HTMLElement).closest(".title-bar-search")) return;
     appWindow.toggleMaximize();
   };
 
@@ -74,6 +83,15 @@ export function TitleBar() {
             <SettingsIcon />
           </button>
         </div>
+        <button
+          className="title-bar-search"
+          onClick={onSearchClick}
+          title="Search files (Ctrl+P)"
+        >
+          <SearchIcon />
+          <span className="title-bar-search-text">Search files...</span>
+          <span className="title-bar-search-shortcut">Ctrl+P</span>
+        </button>
         <div className="title-bar-controls">
           <button className="title-btn minimize" onClick={() => appWindow.minimize()}>
             <MinimizeIcon />

@@ -24,6 +24,7 @@ pub struct PtyDataEvent {
 #[derive(Clone, Serialize)]
 pub struct PtyExitEvent {
     pub id: String,
+    pub code: Option<i32>,
 }
 
 struct PtyInstance {
@@ -32,6 +33,8 @@ struct PtyInstance {
     info: TerminalInfo,
     // Signal to stop the reader thread
     alive: Arc<std::sync::atomic::AtomicBool>,
+    // Child process killer — used to terminate the shell on kill()
+    child_killer: Box<dyn portable_pty::ChildKiller + Send + Sync>,
 }
 
 pub struct PtyManager {
@@ -79,9 +82,12 @@ impl PtyManager {
             cmd.arg("-NoLogo");
         }
 
-        pair.slave
+        let mut child = pair
+            .slave
             .spawn_command(cmd)
             .map_err(|e| format!("Failed to spawn shell: {}", e))?;
+        let child_killer = child
+            .clone_killer();
 
         let reader = pair
             .master
@@ -107,15 +113,31 @@ impl PtyManager {
             writer: Arc::new(Mutex::new(writer)),
             info,
             alive: alive.clone(),
+            child_killer,
         };
 
         self.instances.lock().insert(id.clone(), instance);
 
-        // Spawn background reader thread — emits events instead of blocking
+        // Spawn background reader thread
         let app = app_handle.clone();
         let reader_id = id.clone();
         std::thread::spawn(move || {
             Self::reader_loop(reader, &reader_id, &app, &alive);
+        });
+
+        // Spawn background waiter thread — emits pty-exit with exit code
+        let waiter_app = app_handle.clone();
+        let waiter_id = id.clone();
+        std::thread::spawn(move || {
+            let status = child.wait();
+            let code = status.ok().map(|s| s.exit_code() as i32);
+            let _ = waiter_app.emit(
+                "pty-exit",
+                PtyExitEvent {
+                    id: waiter_id,
+                    code,
+                },
+            );
         });
 
         Ok(id)
@@ -146,7 +168,6 @@ impl PtyManager {
                 Err(_) => break,
             }
         }
-        let _ = app.emit("pty-exit", PtyExitEvent { id: id.to_string() });
     }
 
     pub fn write(&self, id: &str, data: &[u8]) -> Result<(), String> {
@@ -185,13 +206,15 @@ impl PtyManager {
 
     pub fn kill(&self, id: &str) -> Result<(), String> {
         let mut instances = self.instances.lock();
-        let instance = instances
+        let mut instance = instances
             .remove(id)
             .ok_or_else(|| format!("Terminal {} not found", id))?;
         // Signal the reader thread to stop
         instance
             .alive
             .store(false, std::sync::atomic::Ordering::Relaxed);
+        // Kill the child process so the waiter thread unblocks
+        let _ = instance.child_killer.kill();
         Ok(())
     }
 

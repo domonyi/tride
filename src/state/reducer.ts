@@ -18,6 +18,7 @@ export const initialState: AppState = {
   projects: cached.projects ?? [],
   activeProjectId: cached.activeProjectId ?? null,
   activeTerminalId: null,
+  activeGroupId: null,
   gridLayout: cached.gridLayout ?? { rows: 2, cols: 2 },
   sidebarMode: cached.sidebarMode ?? "code",
   sidebarVisible: cached.sidebarVisible ?? true,
@@ -33,6 +34,9 @@ export const initialState: AppState = {
   defaultLlm: cached.defaultLlm ?? "none",
   customLlmCommand: cached.customLlmCommand ?? "",
   defaultShell: cached.defaultShell ?? (navigator.platform.startsWith("Win") ? "powershell" : "bash"),
+  tabOverflowMode: cached.tabOverflowMode ?? "arrows",
+  expandedFolders: {},
+  todos: cached.todos ?? [],
 };
 
 export function appReducer(state: AppState, action: AppAction): AppState {
@@ -70,33 +74,73 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     }
 
     case "SET_ACTIVE_PROJECT":
-      return { ...state, activeProjectId: action.projectId, activeTerminalId: null };
+      return {
+        ...state,
+        activeProjectId: action.projectId,
+        activeTerminalId: null,
+        activeGroupId: null,
+      };
 
     case "SET_ACTIVE_TERMINAL":
-      return { ...state, activeTerminalId: action.terminalId };
+      return {
+        ...state,
+        activeTerminalId: action.terminalId,
+      };
 
     case "ADD_TERMINAL":
       return {
         ...state,
-        projects: state.projects.map((p) =>
-          p.id === action.projectId
-            ? { ...p, terminals: [...p.terminals, action.terminal] }
-            : p
-        ),
+        projects: state.projects.map((p) => {
+          if (p.id !== action.projectId) return p;
+          const updated = { ...p, terminals: [...p.terminals, action.terminal] };
+          // Auto-add to active group if one is selected
+          if (state.activeGroupId && updated.terminalGroups) {
+            updated.terminalGroups = updated.terminalGroups.map((g) =>
+              g.id === state.activeGroupId
+                ? { ...g, terminalIds: [...g.terminalIds, action.terminal.id] }
+                : g
+            );
+          }
+          return updated;
+        }),
         activeTerminalId: action.terminal.id,
       };
 
-    case "REMOVE_TERMINAL":
+    case "REMOVE_TERMINAL": {
+      const project = state.projects.find((p) => p.id === action.projectId);
+      const removed = project?.terminals.find((t) => t.id === action.terminalId);
       return {
         ...state,
-        projects: state.projects.map((p) =>
-          p.id === action.projectId
-            ? { ...p, terminals: p.terminals.filter((t) => t.id !== action.terminalId) }
-            : p
-        ),
+        projects: state.projects.map((p) => {
+          if (p.id !== action.projectId) return p;
+          let terminals = p.terminals.filter((t) => t.id !== action.terminalId);
+          // If removing a split child, clear the parent's split fields
+          if (removed?.splitParentId) {
+            terminals = terminals.map((t) =>
+              t.id === removed.splitParentId
+                ? { ...t, splitDirection: undefined, splitChildId: undefined }
+                : t
+            );
+          }
+          // If removing a split parent, clear the child's splitParentId
+          if (removed?.splitChildId) {
+            terminals = terminals.map((t) =>
+              t.id === removed.splitChildId
+                ? { ...t, splitParentId: undefined }
+                : t
+            );
+          }
+          // Also remove from any group
+          const terminalGroups = (p.terminalGroups ?? []).map((g) => ({
+            ...g,
+            terminalIds: g.terminalIds.filter((id) => id !== action.terminalId),
+          }));
+          return { ...p, terminals, terminalGroups };
+        }),
         activeTerminalId:
           state.activeTerminalId === action.terminalId ? null : state.activeTerminalId,
       };
+    }
 
     case "UPDATE_TERMINAL":
       return {
@@ -111,6 +155,21 @@ export function appReducer(state: AppState, action: AppAction): AppState {
               }
             : p
         ),
+      };
+
+    case "SPLIT_TERMINAL":
+      return {
+        ...state,
+        projects: state.projects.map((p) => {
+          if (p.id !== action.projectId) return p;
+          const terminals = p.terminals.map((t) =>
+            t.id === action.parentId
+              ? { ...t, splitDirection: action.direction, splitChildId: action.child.id }
+              : t
+          );
+          return { ...p, terminals: [...terminals, { ...action.child, splitParentId: action.parentId }] };
+        }),
+        activeTerminalId: action.child.id,
       };
 
     case "SET_GRID_LAYOUT":
@@ -158,6 +217,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "SET_DEFAULT_SHELL":
       return { ...state, defaultShell: action.shell };
 
+    case "SET_TAB_OVERFLOW_MODE":
+      return { ...state, tabOverflowMode: action.mode };
+
     case "SET_PROJECT_COLOR":
       return {
         ...state,
@@ -182,6 +244,119 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           const [moved] = terminals.splice(action.fromIndex, 1);
           terminals.splice(action.toIndex, 0, moved);
           return { ...p, terminals };
+        }),
+      };
+    }
+
+    case "SET_EXPANDED_FOLDERS":
+      return { ...state, expandedFolders: { ...state.expandedFolders, [action.rootPath]: action.folders } };
+
+    case "ADD_TODO":
+      return { ...state, todos: [...state.todos, action.todo] };
+
+    case "UPDATE_TODO":
+      return { ...state, todos: state.todos.map((t) => (t.id === action.todoId ? { ...t, ...action.updates } : t)) };
+
+    case "REMOVE_TODO":
+      return { ...state, todos: state.todos.filter((t) => t.id !== action.todoId) };
+
+    case "REORDER_TODOS": {
+      const todos = [...state.todos];
+      const [moved] = todos.splice(action.fromIndex, 1);
+      todos.splice(action.toIndex, 0, moved);
+      return { ...state, todos };
+    }
+
+    case "CREATE_GROUP": {
+      return {
+        ...state,
+        projects: state.projects.map((p) =>
+          p.id === action.projectId
+            ? { ...p, terminalGroups: [...(p.terminalGroups ?? []), action.group] }
+            : p
+        ),
+        activeGroupId: action.group.id,
+      };
+    }
+
+    case "REMOVE_GROUP": {
+      return {
+        ...state,
+        projects: state.projects.map((p) =>
+          p.id === action.projectId
+            ? { ...p, terminalGroups: (p.terminalGroups ?? []).filter((g) => g.id !== action.groupId) }
+            : p
+        ),
+        activeGroupId: state.activeGroupId === action.groupId ? null : state.activeGroupId,
+      };
+    }
+
+    case "RENAME_GROUP": {
+      return {
+        ...state,
+        projects: state.projects.map((p) =>
+          p.id === action.projectId
+            ? {
+                ...p,
+                terminalGroups: (p.terminalGroups ?? []).map((g) =>
+                  g.id === action.groupId ? { ...g, name: action.name } : g
+                ),
+              }
+            : p
+        ),
+      };
+    }
+
+    case "SET_ACTIVE_GROUP":
+      return { ...state, activeGroupId: action.groupId };
+
+    case "ADD_TO_GROUP": {
+      return {
+        ...state,
+        projects: state.projects.map((p) => {
+          if (p.id !== action.projectId) return p;
+          return {
+            ...p,
+            terminalGroups: (p.terminalGroups ?? []).map((g) => {
+              // Remove from other groups first, then add to target
+              const filtered = g.terminalIds.filter((id) => id !== action.terminalId);
+              if (g.id === action.groupId) {
+                return { ...g, terminalIds: [...filtered, action.terminalId] };
+              }
+              return { ...g, terminalIds: filtered };
+            }),
+          };
+        }),
+      };
+    }
+
+    case "REMOVE_FROM_GROUP": {
+      return {
+        ...state,
+        projects: state.projects.map((p) =>
+          p.id === action.projectId
+            ? {
+                ...p,
+                terminalGroups: (p.terminalGroups ?? []).map((g) =>
+                  g.id === action.groupId
+                    ? { ...g, terminalIds: g.terminalIds.filter((id) => id !== action.terminalId) }
+                    : g
+                ),
+              }
+            : p
+        ),
+      };
+    }
+
+    case "REORDER_GROUPS": {
+      return {
+        ...state,
+        projects: state.projects.map((p) => {
+          if (p.id !== action.projectId) return p;
+          const groups = [...(p.terminalGroups ?? [])];
+          const [moved] = groups.splice(action.fromIndex, 1);
+          groups.splice(action.toIndex, 0, moved);
+          return { ...p, terminalGroups: groups };
         }),
       };
     }

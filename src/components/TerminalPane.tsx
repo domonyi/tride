@@ -2,14 +2,25 @@ import { useCallback } from "react";
 import { useTerminal } from "../hooks/useTerminal";
 import { Terminal } from "../types";
 import { useAppState, useAppDispatch } from "../state/context";
+import { invoke } from "@tauri-apps/api/core";
+import { getLlmCommand } from "../utils/llmCommand";
+import { removePtyBuffer, registerPtyLlm, notifyPtyFocused } from "../ptyBuffer";
 
 interface TerminalPaneProps {
   terminal: Terminal;
 }
 
-export function TerminalPane({ terminal }: TerminalPaneProps) {
+interface SingleTerminalProps extends TerminalPaneProps {
+  onFocus: () => void;
+}
+
+function SingleTerminal({ terminal, onFocus }: SingleTerminalProps) {
   const state = useAppState();
   const dispatch = useAppDispatch();
+
+  const activeProject = state.projects.find((p) =>
+    p.terminals.some((t) => t.id === terminal.id)
+  );
 
   const handleLinkClick = useCallback((link: string) => {
     // URL — open in browser panel
@@ -35,25 +46,194 @@ export function TerminalPane({ terminal }: TerminalPaneProps) {
     window.dispatchEvent(new CustomEvent("open-file", { detail: filePath }));
   }, [dispatch, state.sidebarVisible, terminal.cwd]);
 
-  const { containerRef } = useTerminal({ ptyId: terminal.ptyId, onLinkClick: handleLinkClick });
-
   const isActive = state.activeTerminalId === terminal.id;
 
-  return (
-    <div
-      className={`terminal-pane ${isActive ? "focused" : ""}`}
-      onClick={() => dispatch({ type: "SET_ACTIVE_TERMINAL", terminalId: terminal.id })}
-    >
-      <div className="terminal-pane-header">
-        <span className={`status-dot ${terminal.status}`} />
-        <span className="terminal-pane-title">{terminal.title}</span>
-        <span className="terminal-pane-mode">{terminal.mode}</span>
-        {terminal.branch && <span className="terminal-pane-branch">{terminal.branch}</span>}
-        {terminal.filesChanged !== undefined && (
-          <span className="terminal-pane-changes">+{terminal.filesChanged}</span>
-        )}
+  const handleTitleChange = useCallback((title: string) => {
+    if (!activeProject) return;
+    // Strip any leading non-word symbol (activity dots like ● • · ⏺ etc.) from the title
+    const cleaned = title.replace(/^\W\s*/, "");
+    dispatch({ type: "UPDATE_TERMINAL", projectId: activeProject.id, terminalId: terminal.id, updates: { title: cleaned } });
+  }, [dispatch, activeProject, terminal.id]);
+
+  const { containerRef } = useTerminal({
+    ptyId: terminal.ptyId,
+    isActive,
+    onLinkClick: handleLinkClick,
+    onTitleChange: handleTitleChange,
+    onFocus,
+  });
+
+  return <div className="terminal-pane-body" ref={containerRef} />;
+}
+
+export function TerminalPane({ terminal }: TerminalPaneProps) {
+  const state = useAppState();
+  const dispatch = useAppDispatch();
+
+  const activeProject = state.projects.find((p) => p.id === state.activeProjectId);
+  const isActive = state.activeTerminalId === terminal.id;
+
+  const LLM_TITLES: Record<string, string> = {
+    claude: "Claude Code",
+    codex: "Codex",
+    custom: "LLM",
+  };
+
+  const handleSplit = async (direction: "horizontal" | "vertical") => {
+    if (!activeProject) return;
+
+    const shellMap: Record<string, string> = {
+      powershell: "powershell.exe",
+      cmd: "cmd.exe",
+      bash: "/bin/bash",
+      zsh: "/bin/zsh",
+      fish: "/usr/bin/fish",
+    };
+
+    const llmTitle = state.defaultLlm !== "none" ? (LLM_TITLES[state.defaultLlm] ?? "LLM") : null;
+    const title = llmTitle ?? "Terminal";
+
+    const newId = crypto.randomUUID();
+    let ptyId: string | null = null;
+    try {
+      ptyId = await invoke<string>("spawn_terminal", {
+        cwd: terminal.cwd,
+        title,
+        shell: shellMap[state.defaultShell] ?? null,
+      });
+
+      const cmd = getLlmCommand(state.defaultLlm, state.customLlmCommand);
+      if (cmd && ptyId) {
+        setTimeout(() => {
+          const encoder = new TextEncoder();
+          invoke("write_terminal", {
+            id: ptyId!,
+            data: Array.from(encoder.encode(cmd + "\r")),
+          }).catch(() => {});
+        }, 500);
+      }
+      if (ptyId) registerPtyLlm(ptyId, !!llmTitle);
+    } catch (e) {
+      console.error("Failed to spawn split terminal:", e);
+    }
+
+    dispatch({
+      type: "SPLIT_TERMINAL",
+      projectId: activeProject.id,
+      parentId: terminal.id,
+      direction,
+      child: {
+        id: newId,
+        title,
+        ptyId,
+        cwd: terminal.cwd,
+        mode: "instance",
+        status: "idle",
+        isLlm: !!llmTitle,
+      },
+    });
+  };
+
+  const handleClose = async () => {
+    if (!activeProject) return;
+    if (terminal.ptyId) {
+      invoke("kill_terminal", { id: terminal.ptyId }).catch(() => {});
+      removePtyBuffer(terminal.ptyId);
+    }
+    if (terminal.mode === "worktree" && terminal.worktreePath) {
+      try {
+        await invoke("git_worktree_remove", {
+          cwd: activeProject.path,
+          worktreePath: terminal.worktreePath,
+        });
+      } catch (err) {
+        console.warn("Failed to remove worktree:", err);
+      }
+    }
+    dispatch({
+      type: "REMOVE_TERMINAL",
+      projectId: activeProject.id,
+      terminalId: terminal.id,
+    });
+  };
+
+  const allTerminals = activeProject?.terminals ?? [];
+  const splitChild = terminal.splitChildId
+    ? allTerminals.find((t) => t.id === terminal.splitChildId) ?? null
+    : null;
+
+  const renderHeader = (t: Terminal, isChild?: boolean) => {
+    const active = state.activeTerminalId === t.id;
+    const setActive = () => {
+      dispatch({ type: "SET_ACTIVE_TERMINAL", terminalId: t.id });
+      if (t.ptyId) notifyPtyFocused(t.ptyId);
+    };
+    return (
+      <div
+        className={`terminal-pane ${active ? "focused" : ""}`}
+        onMouseDown={setActive}
+        style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, minWidth: 0 }}
+      >
+        <div className="terminal-pane-header">
+          <span className={`status-dot ${t.status}`} />
+          <span className="terminal-pane-title">{t.title}</span>
+          <span className="terminal-pane-mode">{t.mode}</span>
+          {t.branch && <span className="terminal-pane-branch">{t.branch}</span>}
+          {t.filesChanged !== undefined && (
+            <span className="terminal-pane-changes">+{t.filesChanged}</span>
+          )}
+          <span className="terminal-pane-spacer" />
+          {!isChild && (
+            <>
+              <button
+                className="terminal-split-btn"
+                title="Split horizontal"
+                onClick={(e) => { e.stopPropagation(); handleSplit("horizontal"); }}
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <rect x="1" y="1" width="14" height="14" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
+                  <line x1="1" y1="8" x2="15" y2="8" stroke="currentColor" strokeWidth="1.2" />
+                </svg>
+              </button>
+              <button
+                className="terminal-split-btn"
+                title="Split vertical"
+                onClick={(e) => { e.stopPropagation(); handleSplit("vertical"); }}
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <rect x="1" y="1" width="14" height="14" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
+                  <line x1="8" y1="1" x2="8" y2="15" stroke="currentColor" strokeWidth="1.2" />
+                </svg>
+              </button>
+            </>
+          )}
+          <button
+            className="terminal-split-btn"
+            title="Close terminal"
+            onClick={(e) => { e.stopPropagation(); handleClose(); }}
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <line x1="4" y1="4" x2="12" y2="12" stroke="currentColor" strokeWidth="1.2" />
+              <line x1="12" y1="4" x2="4" y2="12" stroke="currentColor" strokeWidth="1.2" />
+            </svg>
+          </button>
+        </div>
+        <div className="terminal-nosplit-container">
+          <SingleTerminal terminal={t} onFocus={setActive} />
+        </div>
       </div>
-      <div className="terminal-pane-body" ref={containerRef} />
-    </div>
-  );
+    );
+  };
+
+  if (splitChild) {
+    return (
+      <div className={`terminal-split-container ${terminal.splitDirection}`}>
+        {renderHeader(terminal)}
+        <div className="terminal-split-divider" />
+        {renderHeader(splitChild, true)}
+      </div>
+    );
+  }
+
+  return renderHeader(terminal);
 }

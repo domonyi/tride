@@ -66,6 +66,7 @@ export function ActionBar() {
             [1, 1],
             [1, 2],
             [2, 2],
+            [3, 2],
             [3, 3],
           ].map(([r, c]) => (
             <button

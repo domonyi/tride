@@ -1,15 +1,19 @@
 import { useEffect, useRef, useCallback } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { WebglAddon } from "@xterm/addon-webgl";
+import { SerializeAddon } from "@xterm/addon-serialize";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { drainBuffer, hasExited, markActive, markInactive } from "../ptyBuffer";
+import { drainBuffer, hasExited, markActive, markInactive, saveScreen, restoreScreen, notifyUserInput } from "../ptyBuffer";
+import { logEscapeSequences } from "../debugLog";
 
 interface UseTerminalOptions {
   ptyId: string | null;
+  isActive?: boolean;
   onLinkClick?: (link: string) => void;
+  onTitleChange?: (title: string) => void;
+  onFocus?: () => void;
 }
 
 interface PtyDataEvent {
@@ -19,21 +23,29 @@ interface PtyDataEvent {
 
 interface PtyExitEvent {
   id: string;
+  code?: number;
 }
 
-export function useTerminal({ ptyId, onLinkClick }: UseTerminalOptions) {
+export function useTerminal({ ptyId, isActive, onLinkClick, onTitleChange, onFocus }: UseTerminalOptions) {
   const containerRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const serializeAddonRef = useRef<SerializeAddon | null>(null);
+  const ptyIdRef = useRef(ptyId);
+  ptyIdRef.current = ptyId;
   const onLinkClickRef = useRef(onLinkClick);
   onLinkClickRef.current = onLinkClick;
+  const onTitleChangeRef = useRef(onTitleChange);
+  onTitleChangeRef.current = onTitleChange;
+  const onFocusRef = useRef(onFocus);
+  onFocusRef.current = onFocus;
 
   // Initialize xterm
   useEffect(() => {
     if (!containerRef.current) return;
 
     const xterm = new XTerm({
-      scrollback: 10_000,
+      scrollback: 50_000,
       cursorBlink: false,
       cursorStyle: "bar",
       cursorWidth: 1,
@@ -65,16 +77,22 @@ export function useTerminal({ ptyId, onLinkClick }: UseTerminalOptions) {
     });
 
     const fitAddon = new FitAddon();
+    const serializeAddon = new SerializeAddon();
     xterm.loadAddon(fitAddon);
+    xterm.loadAddon(serializeAddon);
     xterm.open(containerRef.current);
 
-    // WebGL renderer for better performance and color support
-    try {
-      const webglAddon = new WebglAddon();
-      webglAddon.onContextLoss(() => webglAddon.dispose());
-      xterm.loadAddon(webglAddon);
-    } catch {
-      // WebGL not available, fall back to canvas
+    // Hide xterm's cursor — Claude Code draws its own
+    xterm.write("\x1b[?25l");
+
+    // Restore previously serialized screen content
+    if (ptyIdRef.current) {
+      const saved = restoreScreen(ptyIdRef.current);
+      if (saved) {
+        xterm.write(saved);
+      }
+      // Re-hide cursor after restore (restore may reset cursor visibility)
+      xterm.write("\x1b[?25l");
     }
 
     requestAnimationFrame(() => {
@@ -203,15 +221,48 @@ export function useTerminal({ ptyId, onLinkClick }: UseTerminalOptions) {
       return true;
     });
 
+    // Listen for OSC title change sequences (shells/programs set window title)
+    const titleDisposable = xterm.onTitleChange((title) => {
+      onTitleChangeRef.current?.(title);
+    });
+
+    // When xterm receives focus (click, tab, etc.), notify parent so active terminal state stays in sync
+    const focusHandler = () => onFocusRef.current?.();
+    xterm.textarea?.addEventListener("focus", focusHandler);
+
     xtermRef.current = xterm;
     fitAddonRef.current = fitAddon;
+    serializeAddonRef.current = serializeAddon;
 
     return () => {
+      // Serialize the full scrollback before destroying so it can be restored on remount
+      if (ptyIdRef.current) {
+        try {
+          const content = serializeAddon.serialize({ scrollback: 50_000 });
+          if (content) {
+            saveScreen(ptyIdRef.current, content);
+          }
+        } catch {}
+      }
+      xterm.textarea?.removeEventListener("focus", focusHandler);
+      titleDisposable.dispose();
       xterm.dispose();
       xtermRef.current = null;
       fitAddonRef.current = null;
+      serializeAddonRef.current = null;
     };
   }, []);
+
+  // Manage xterm focus/blur based on active terminal state
+  useEffect(() => {
+    const xterm = xtermRef.current;
+    if (!xterm) return;
+    if (isActive) {
+      xterm.focus();
+    } else {
+      xterm.blur();
+    }
+  }, [isActive]);
 
   // Wire up PTY input (user typing -> PTY) and output (PTY events -> xterm)
   useEffect(() => {
@@ -233,6 +284,7 @@ export function useTerminal({ ptyId, onLinkClick }: UseTerminalOptions) {
 
     // User input -> write to PTY
     const inputDisposable = xterm.onData((data) => {
+      notifyUserInput(ptyId);
       const encoder = new TextEncoder();
       invoke("write_terminal", {
         id: ptyId,
@@ -240,14 +292,18 @@ export function useTerminal({ ptyId, onLinkClick }: UseTerminalOptions) {
       }).catch(() => {});
     });
 
-    // PTY output -> write to xterm (event-based, no polling)
     let unlistenData: UnlistenFn | null = null;
     let unlistenExit: UnlistenFn | null = null;
 
     const setupListeners = async () => {
       unlistenData = await listen<PtyDataEvent>("pty-data", (event) => {
         if (event.payload.id === ptyId && xtermRef.current) {
-          xtermRef.current.write(new Uint8Array(event.payload.data));
+          // Strip "show cursor" escape sequences so only Claude Code's cursor is visible
+          const raw = new Uint8Array(event.payload.data);
+          const text = new TextDecoder().decode(raw);
+          logEscapeSequences(ptyId, text);
+          const filtered = text.replace(/\x1b\[\?25h/g, "");
+          xtermRef.current.write(filtered);
         }
       });
 
@@ -270,7 +326,11 @@ export function useTerminal({ ptyId, onLinkClick }: UseTerminalOptions) {
 
   // Resize handling
   const fit = useCallback(() => {
-    if (fitAddonRef.current && xtermRef.current) {
+    if (fitAddonRef.current && xtermRef.current && containerRef.current) {
+      // Skip fitting when the container is collapsed (e.g. window minimized)
+      // so xterm keeps its dimensions and re-fits correctly on restore.
+      const { clientWidth, clientHeight } = containerRef.current;
+      if (clientWidth < 10 || clientHeight < 10) return;
       try {
         fitAddonRef.current.fit();
         if (ptyId) {
@@ -284,13 +344,92 @@ export function useTerminal({ ptyId, onLinkClick }: UseTerminalOptions) {
     }
   }, [ptyId]);
 
-  // ResizeObserver for auto-fit
+  // ResizeObserver for auto-fit (debounced to avoid reflow issues during maximize/minimize)
   useEffect(() => {
     if (!containerRef.current) return;
-    const observer = new ResizeObserver(() => fit());
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const observer = new ResizeObserver(() => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => fit(), 80);
+    });
     observer.observe(containerRef.current);
-    return () => observer.disconnect();
+    return () => {
+      if (timer) clearTimeout(timer);
+      observer.disconnect();
+    };
   }, [fit]);
+
+  // Drag-and-drop: images are saved to temp and path is pasted, files paste their path
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const onDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+      el.classList.add("drop-active");
+    };
+
+    const onDragLeave = (e: DragEvent) => {
+      e.preventDefault();
+      el.classList.remove("drop-active");
+    };
+
+    const onDrop = async (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      el.classList.remove("drop-active");
+      if (!ptyId || !xtermRef.current || !e.dataTransfer) return;
+
+      const xterm = xtermRef.current;
+
+      // Handle dropped files from file explorer
+      if (e.dataTransfer.files.length > 0) {
+        const paths: string[] = [];
+        for (const file of Array.from(e.dataTransfer.files)) {
+          if (file.type.startsWith("image/") && !(file as any).path) {
+            // Browser-origin image blob — save to temp
+            const arrayBuf = await file.arrayBuffer();
+            const bytes = Array.from(new Uint8Array(arrayBuf));
+            const ext = file.name.split(".").pop() || "png";
+            const savedPath = await invoke<string>("save_clipboard_image", { data: bytes, extension: ext });
+            paths.push(savedPath);
+          } else {
+            // File from OS file explorer — use its path directly
+            paths.push((file as any).path || file.name);
+          }
+        }
+        if (paths.length > 0) {
+          xterm.paste(paths.join(" "));
+        }
+        return;
+      }
+
+      // Handle dragged image data (e.g. from browser)
+      for (const item of Array.from(e.dataTransfer.items)) {
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (!file) continue;
+          const arrayBuf = await file.arrayBuffer();
+          const bytes = Array.from(new Uint8Array(arrayBuf));
+          const ext = item.type.split("/")[1] === "jpeg" ? "jpg" : item.type.split("/")[1] || "png";
+          const savedPath = await invoke<string>("save_clipboard_image", { data: bytes, extension: ext });
+          xterm.paste(savedPath);
+          return;
+        }
+      }
+    };
+
+    el.addEventListener("dragover", onDragOver);
+    el.addEventListener("dragleave", onDragLeave);
+    el.addEventListener("drop", onDrop);
+    return () => {
+      el.removeEventListener("dragover", onDragOver);
+      el.removeEventListener("dragleave", onDragLeave);
+      el.removeEventListener("drop", onDrop);
+    };
+  }, [ptyId]);
 
   return { containerRef, fit };
 }

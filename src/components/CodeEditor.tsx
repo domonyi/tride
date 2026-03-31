@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import Editor, { type OnMount, type BeforeMount, type Monaco } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
 import { invoke } from "@tauri-apps/api/core";
@@ -6,9 +6,7 @@ import { FileTree } from "./FileTree";
 import { useAppState, useAppDispatch } from "../state/context";
 import { useLsp } from "../hooks/useLsp";
 import { ImagePreview } from "./ImagePreview";
-import { createHighlighter } from "shiki";
-import { textmateThemeToMonacoTheme } from "@shikijs/monaco";
-import { INITIAL } from "@shikijs/vscode-textmate";
+import { initShiki } from "../shiki";
 
 const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "bmp", "webp", "svg", "ico"]);
 
@@ -62,94 +60,6 @@ interface OpenTab {
   modified: boolean;
 }
 
-// State wrapper for TextMate tokenizer (used by shikiToMonaco internally too)
-class TokenizerState {
-  constructor(public ruleStack: any) {}
-  clone() { return new TokenizerState(this.ruleStack); }
-  equals(other: any) { return other instanceof TokenizerState && other.ruleStack === this.ruleStack; }
-}
-
-// Shiki highlighter — initialized once, shared across editor instances
-let shikiHighlighter: Awaited<ReturnType<typeof createHighlighter>> | null = null;
-let shikiInitPromise: Promise<void> | null = null;
-
-function registerThemeInMonaco(monaco: Monaco, theme: string) {
-  if (!shikiHighlighter) return;
-  const monacoTheme = textmateThemeToMonacoTheme(shikiHighlighter.getTheme(theme));
-  monaco.editor.defineTheme(theme, monacoTheme);
-}
-
-function registerTokenProviders(monaco: Monaco) {
-  if (!shikiHighlighter) return;
-  // Register token providers for all loaded languages + our custom LSP language IDs
-  const monacoLangs = new Set(monaco.languages.getLanguages().map((l: any) => l.id));
-  const langAliases: Record<string, string> = { "typescript-lsp": "tsx", "javascript-lsp": "jsx" };
-
-  for (const lang of [...shikiHighlighter.getLoadedLanguages(), ...Object.keys(langAliases)]) {
-    if (!monacoLangs.has(lang)) continue;
-    const grammarLang = langAliases[lang] || lang;
-    let grammar: any;
-    try { grammar = shikiHighlighter.getLanguage(grammarLang); } catch { continue; }
-
-    monaco.languages.setTokensProvider(lang, {
-      getInitialState() { return new TokenizerState(INITIAL); },
-      tokenize(line: string, state: any) {
-        if (line.length >= 20000) {
-          return { endState: state, tokens: [{ startIndex: 0, scopes: "" }] };
-        }
-        const result = grammar.tokenizeLine(line, state.ruleStack, 500);
-        const tokens: { startIndex: number; scopes: string }[] = [];
-        for (const tok of result.tokens) {
-          const scope = tok.scopes[tok.scopes.length - 1] || "";
-          tokens.push({ startIndex: tok.startIndex, scopes: scope });
-        }
-        return { endState: new TokenizerState(result.ruleStack), tokens };
-      },
-    } as any);
-  }
-}
-
-async function initShiki(monaco: Monaco, theme: string) {
-  if (shikiHighlighter) {
-    // Already initialized — just load and apply the new theme
-    if (!shikiHighlighter.getLoadedThemes().includes(theme)) {
-      await shikiHighlighter.loadTheme(theme as any);
-    }
-    registerThemeInMonaco(monaco, theme);
-    monaco.editor.setTheme(theme);
-    return;
-  }
-
-  // Prevent double init if called concurrently
-  if (shikiInitPromise) { await shikiInitPromise; return initShiki(monaco, theme); }
-
-  shikiInitPromise = (async () => {
-    shikiHighlighter = await createHighlighter({
-      themes: [theme as any],
-      langs: [
-        "typescript", "tsx", "javascript", "jsx",
-        "rust", "python", "json", "css", "html",
-        "markdown", "toml", "yaml", "shellscript",
-        "sql", "go", "java", "cpp", "c",
-        "csharp", "ruby", "php", "swift", "kotlin",
-        "lua", "xml", "vue", "svelte",
-      ],
-    });
-
-    // Register custom language IDs for LSP
-    monaco.languages.register({ id: "typescript-lsp" });
-    monaco.languages.register({ id: "javascript-lsp" });
-
-    // Register TextMate token providers for all languages
-    registerTokenProviders(monaco);
-
-    // Register and apply the theme
-    registerThemeInMonaco(monaco, theme);
-    monaco.editor.setTheme(theme);
-  })();
-
-  await shikiInitPromise;
-}
 
 const defineTheme: BeforeMount = (monaco) => {
   // Define a dark fallback theme immediately so the editor is never white while Shiki loads
@@ -200,6 +110,19 @@ const defineTheme: BeforeMount = (monaco) => {
   monaco.languages.setLanguageConfiguration("javascript-lsp", tsConfig);
 };
 
+interface GitFileStatus {
+  path: string;
+  status: string;
+  staged: boolean;
+}
+
+interface BreadcrumbDropdown {
+  segmentIndex: number;
+  folderPath: string;
+  entries: { name: string; path: string; is_dir: boolean }[];
+  rect: DOMRect;
+}
+
 export function CodeEditor() {
   const state = useAppState();
   const dispatch = useAppDispatch();
@@ -210,6 +133,8 @@ export function CodeEditor() {
   const [monacoInstance, setMonacoInstance] = useState<Monaco | null>(null);
   const restoredRef = useRef(false);
   const versionRef = useRef<Map<string, number>>(new Map());
+  const [fileStatuses, setFileStatuses] = useState<Map<string, string>>(new Map());
+  const [breadcrumbDropdown, setBreadcrumbDropdown] = useState<BreadcrumbDropdown | null>(null);
 
   const treeRef = useRef<HTMLDivElement>(null);
   const activeProject = state.projects.find((p) => p.id === state.activeProjectId);
@@ -217,6 +142,16 @@ export function CodeEditor() {
   const rootPath = activeTerminal?.cwd || activeProject?.path || null;
   const explorerVisible = state.explorerVisible;
   const explorerWidth = state.explorerWidth;
+
+  const expandedFoldersArray = rootPath ? (state.expandedFolders[rootPath] ?? []) : [];
+  const expandedFolders = useMemo(() => new Set(expandedFoldersArray), [expandedFoldersArray]);
+  const onToggleFolder = useCallback((folderPath: string) => {
+    if (!rootPath) return;
+    const next = expandedFolders.has(folderPath)
+      ? expandedFoldersArray.filter((p) => p !== folderPath)
+      : [...expandedFoldersArray, folderPath];
+    dispatch({ type: "SET_EXPANDED_FOLDERS", rootPath, folders: next });
+  }, [rootPath, expandedFolders, expandedFoldersArray, dispatch]);
 
   const onTreeResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -283,6 +218,28 @@ export function CodeEditor() {
       return () => clearTimeout(timer);
     }
   }, [state.openedFiles, state.lastOpenedFile, rootPath]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Poll git status for file tree diff indicators
+  useEffect(() => {
+    if (!rootPath) return;
+    const fetchStatus = async () => {
+      try {
+        const result = await invoke<GitFileStatus[]>("git_status", { cwd: rootPath });
+        const sep = rootPath.includes("/") ? "/" : "\\";
+        const map = new Map<string, string>();
+        for (const f of result) {
+          const absPath = rootPath + sep + f.path.replace(/\//g, sep);
+          map.set(absPath, f.status);
+        }
+        setFileStatuses(map);
+      } catch {
+        setFileStatuses(new Map());
+      }
+    };
+    fetchStatus();
+    const id = setInterval(fetchStatus, 3000);
+    return () => clearInterval(id);
+  }, [rootPath]);
 
   // Keep a ref to openFileFromPath so the event listener always uses the latest
   const openFileRef = useRef<(path: string) => void>(() => {});
@@ -406,6 +363,60 @@ export function CodeEditor() {
     }
   }, [state.editorTheme, monacoInstance]);
 
+  // Close breadcrumb dropdown when active tab changes or Escape is pressed
+  useEffect(() => { setBreadcrumbDropdown(null); }, [activeTab]);
+  useEffect(() => {
+    if (!breadcrumbDropdown) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setBreadcrumbDropdown(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [breadcrumbDropdown]);
+
+  // Drag-and-drop: open dropped files as tabs
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+    setDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+
+    if (e.dataTransfer.files.length > 0) {
+      for (const file of Array.from(e.dataTransfer.files)) {
+        const path = (file as any).path;
+        if (path) {
+          await openFile(path);
+        }
+      }
+      return;
+    }
+
+    // Handle dragged image data (e.g. from browser) — save to temp and open
+    for (const item of Array.from(e.dataTransfer.items)) {
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (!file) continue;
+        const arrayBuf = await file.arrayBuffer();
+        const bytes = Array.from(new Uint8Array(arrayBuf));
+        const ext = item.type.split("/")[1] === "jpeg" ? "jpg" : item.type.split("/")[1] || "png";
+        const savedPath = await invoke<string>("save_clipboard_image", { data: bytes, extension: ext });
+        await openFile(savedPath);
+        return;
+      }
+    }
+  }, [openFile]);
+
   if (!rootPath) {
     return (
       <div className="sidebar-placeholder">
@@ -417,11 +428,16 @@ export function CodeEditor() {
   }
 
   return (
-    <div className="code-editor-layout">
+    <div
+      className={`code-editor-layout ${dragOver ? "drop-active" : ""}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {explorerVisible && (
         <>
           <div className="code-editor-tree" ref={treeRef} style={{ width: explorerWidth }}>
-            <FileTree key={rootPath} rootPath={rootPath} onFileSelect={openFile} selectedFile={activeTab} />
+            <FileTree key={rootPath} rootPath={rootPath} onFileSelect={openFile} selectedFile={activeTab} expandedFolders={expandedFolders} onToggleFolder={onToggleFolder} fileStatuses={fileStatuses} />
           </div>
           <div className="code-editor-tree-resize" onMouseDown={onTreeResizeStart} />
         </>
@@ -442,6 +458,88 @@ export function CodeEditor() {
             ))}
           </div>
         )}
+        {activeTab && rootPath && (() => {
+          const normalizedPath = activeTab.replace(/\\/g, "/");
+          const normalizedRoot = rootPath.replace(/\\/g, "/");
+          const relative = normalizedPath.startsWith(normalizedRoot + "/")
+            ? normalizedPath.slice(normalizedRoot.length + 1)
+            : normalizedPath;
+          const segments = relative.split("/");
+          const onBreadcrumbClick = async (e: React.MouseEvent, segmentIndex: number) => {
+            // If clicking the same segment that's already open, close it
+            if (breadcrumbDropdown?.segmentIndex === segmentIndex) {
+              setBreadcrumbDropdown(null);
+              return;
+            }
+            // The folder to list: for segment i, list the parent folder that contains segment i
+            const folderPath = segmentIndex === 0
+              ? normalizedRoot
+              : normalizedRoot + "/" + segments.slice(0, segmentIndex).join("/");
+            try {
+              const result = await invoke<{ name: string; path: string; is_dir: boolean }[]>("list_dir", { path: folderPath });
+              const sorted = result.sort((a, b) => {
+                if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
+                return a.name.localeCompare(b.name);
+              });
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              setBreadcrumbDropdown({ segmentIndex, folderPath, entries: sorted, rect });
+            } catch {
+              setBreadcrumbDropdown(null);
+            }
+          };
+          return (
+            <div className="breadcrumbs">
+              {segments.map((seg, i) => (
+                <span key={i} className="breadcrumb-item">
+                  {i > 0 && <span className="breadcrumb-sep">/</span>}
+                  <span
+                    className={`breadcrumb-label ${breadcrumbDropdown?.segmentIndex === i ? "dropdown-open" : ""}`}
+                    onClick={(e) => onBreadcrumbClick(e, i)}
+                  >
+                    {seg}
+                  </span>
+                </span>
+              ))}
+              {breadcrumbDropdown && (
+                <div className="breadcrumb-dropdown-overlay" onClick={() => setBreadcrumbDropdown(null)}>
+                  <div
+                    className="breadcrumb-dropdown"
+                    style={{ left: breadcrumbDropdown.rect.left, top: breadcrumbDropdown.rect.bottom + 2 }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {breadcrumbDropdown.entries.map((entry) => {
+                      const entryNorm = entry.path.replace(/\\/g, "/");
+                      const isActive = normalizedPath === entryNorm || normalizedPath.startsWith(entryNorm + "/");
+                      return (
+                        <div
+                          key={entry.path}
+                          className={`breadcrumb-dropdown-item ${isActive ? "active" : ""}`}
+                          onClick={() => {
+                            setBreadcrumbDropdown(null);
+                            if (entry.is_dir) {
+                              // Expand this folder in the tree
+                              window.dispatchEvent(new CustomEvent("reveal-in-tree", { detail: entryNorm }));
+                            } else {
+                              openFile(entry.path);
+                            }
+                          }}
+                        >
+                          <span className={`breadcrumb-dropdown-icon ${entry.is_dir ? "folder" : "file"}`}>
+                            {entry.is_dir ? "📁" : "📄"}
+                          </span>
+                          <span className="breadcrumb-dropdown-name">{entry.name}</span>
+                        </div>
+                      );
+                    })}
+                    {breadcrumbDropdown.entries.length === 0 && (
+                      <div className="breadcrumb-dropdown-item empty">Empty folder</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
         {currentTab && isImageFile(currentTab.path) ? (
           <ImagePreview src={currentTab.content} name={currentTab.name} />
         ) : currentTab ? (

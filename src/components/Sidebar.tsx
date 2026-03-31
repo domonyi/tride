@@ -5,11 +5,13 @@ import type { SidebarMode } from "../types";
 const CodeEditor = lazy(() => import("./CodeEditor").then((m) => ({ default: m.CodeEditor })));
 const SourceControl = lazy(() => import("./SourceControl").then((m) => ({ default: m.SourceControl })));
 const BrowserPanel = lazy(() => import("./BrowserPanel").then((m) => ({ default: m.BrowserPanel })));
+const TodoPanel = lazy(() => import("./TodoPanel").then((m) => ({ default: m.TodoPanel })));
 
 const SIDEBAR_MODES: { key: SidebarMode; label: string; shortcut: string }[] = [
   { key: "code", label: "CODE", shortcut: "Alt+1" },
   { key: "scm", label: "SOURCE CONTROL", shortcut: "Alt+2" },
   { key: "browser", label: "BROWSER", shortcut: "Alt+3" },
+  { key: "todo", label: "TO-DO", shortcut: "Alt+4" },
 ];
 
 export function Sidebar() {
@@ -87,6 +89,13 @@ export function Sidebar() {
               <BrowserPanel />
             </Suspense>
           </div>
+          {state.sidebarMode === "todo" && (
+            <div className="sidebar-panel" style={{ display: "flex" }}>
+              <Suspense fallback={<div className="code-editor-loading">Loading...</div>}>
+                <TodoPanel />
+              </Suspense>
+            </div>
+          )}
         </div>
       </div>
     </div>

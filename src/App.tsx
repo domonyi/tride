@@ -3,6 +3,7 @@ import { AppProvider, useAppState, useAppDispatch } from "./state/context";
 import { TitleBar } from "./components/TitleBar";
 import { ProjectTabs } from "./components/ProjectTabs";
 import { TerminalTabs } from "./components/TerminalTabs";
+import { GroupTabs } from "./components/GroupTabs";
 import { Sidebar } from "./components/Sidebar";
 import { ActionBar } from "./components/ActionBar";
 import { SearchBar } from "./components/SearchBar";
@@ -10,6 +11,7 @@ import { SearchBar } from "./components/SearchBar";
 const TerminalGrid = lazy(() => import("./components/TerminalGrid").then((m) => ({ default: m.TerminalGrid })));
 import { saveSession, loadSession, respawnTerminals } from "./state/session";
 import { saveLayoutState } from "./state/localStorage";
+import { registerStatusSubscriber } from "./ptyBuffer";
 import type { SidebarMode } from "./types";
 import "./styles.css";
 
@@ -19,22 +21,29 @@ function AppContent() {
   const loadedRef = useRef(false);
   const restoredRef = useRef(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const projectsRef = useRef(state.projects);
+  projectsRef.current = state.projects;
 
   // Restore session on startup
   useEffect(() => {
     if (loadedRef.current) return;
     loadedRef.current = true;
 
+    // Request notification permission for terminal activity alerts
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+
     // Tier 1 (projects, layout) is already in initialState from localStorage.
     // Respawn PTYs immediately from the projects already in state.
     respawnTerminals(
       state.projects,
-      (projectId, terminalId, ptyId) => {
+      (projectId, terminalId, ptyId, isLlm) => {
         dispatch({
           type: "UPDATE_TERMINAL",
           projectId,
           terminalId,
-          updates: { ptyId },
+          updates: { ptyId, isLlm },
         });
       },
       {
@@ -52,17 +61,37 @@ function AppContent() {
           type: "RESTORE_SESSION",
           state: {
             activeTerminalId: session.activeTerminalId,
+            activeGroupId: (session as any).activeGroupId ?? null,
             lastOpenedFile: session.lastOpenedFile,
             openedFiles: session.openedFiles,
             lastBrowserUrl: session.lastBrowserUrl,
             commitMessages: session.commitMessages,
             scmChangesHeight: session.scmChangesHeight,
+            expandedFolders: session.expandedFolders,
           },
         });
       }
       restoredRef.current = true;
     });
   }, [dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Wire up global PTY status changes to React state
+  useEffect(() => {
+    registerStatusSubscriber((ptyId, status) => {
+      for (const project of projectsRef.current) {
+        const terminal = project.terminals.find((t) => t.ptyId === ptyId);
+        if (terminal && terminal.status !== status) {
+          dispatch({
+            type: "UPDATE_TERMINAL",
+            projectId: project.id,
+            terminalId: terminal.id,
+            updates: { status },
+          });
+          break;
+        }
+      }
+    });
+  }, [dispatch]);
 
   // Auto-save: localStorage immediately (Tier 1), session file debounced (all state)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -86,6 +115,7 @@ function AppContent() {
           "1": "code",
           "2": "scm",
           "3": "browser",
+          "4": "todo",
         };
         if (modeMap[e.key]) {
           e.preventDefault();
@@ -129,11 +159,12 @@ function AppContent() {
 
   return (
     <div className="app">
-      <TitleBar />
+      <TitleBar onSearchClick={() => setSearchOpen(true)} />
       <div className="main-area">
         <div className="terminal-column">
           <div className="tab-bar">
             <ProjectTabs />
+            <GroupTabs />
             <TerminalTabs />
           </div>
           <div className="terminal-area">

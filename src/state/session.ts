@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { AppState, Project, Terminal, GridLayout, SidebarMode, DefaultLlm, DefaultShell } from "../types";
 import { getLlmCommand } from "../utils/llmCommand";
+import { registerPtyLlm } from "../ptyBuffer";
 
 interface SavedTerminal {
   id: string;
@@ -17,9 +18,11 @@ interface SavedSession {
     name: string;
     path: string;
     terminals: SavedTerminal[];
+    terminalGroups?: Array<{ id: string; name: string; terminalIds: string[] }>;
   }>;
   activeProjectId: string | null;
   activeTerminalId: string | null;
+  activeGroupId?: string | null;
   gridLayout: GridLayout;
   sidebarMode: string; // may contain legacy "diff"/"git" values
   sidebarVisible: boolean;
@@ -31,6 +34,7 @@ interface SavedSession {
   explorerWidth: number;
   lastBrowserUrl: string | null;
   commitMessages: Record<string, string>;
+  expandedFolders?: Record<string, string[]>;
 }
 
 async function resolveSessionPath(): Promise<string> {
@@ -57,9 +61,11 @@ export async function saveSession(state: AppState): Promise<void> {
         branch: t.branch,
         worktreePath: t.worktreePath,
       })),
+      terminalGroups: p.terminalGroups,
     })),
     activeProjectId: state.activeProjectId,
     activeTerminalId: state.activeTerminalId,
+    activeGroupId: state.activeGroupId,
     gridLayout: state.gridLayout,
     sidebarMode: state.sidebarMode,
     sidebarVisible: state.sidebarVisible,
@@ -71,6 +77,7 @@ export async function saveSession(state: AppState): Promise<void> {
     explorerWidth: state.explorerWidth,
     lastBrowserUrl: state.lastBrowserUrl,
     commitMessages: state.commitMessages,
+    expandedFolders: state.expandedFolders,
   };
 
   try {
@@ -87,6 +94,7 @@ export interface RestoredSession {
   projects: Project[];
   activeProjectId: string | null;
   activeTerminalId: string | null;
+  activeGroupId: string | null;
   gridLayout: GridLayout;
   sidebarMode: SidebarMode;
   sidebarVisible: boolean;
@@ -98,6 +106,7 @@ export interface RestoredSession {
   explorerWidth: number;
   lastBrowserUrl: string | null;
   commitMessages: Record<string, string>;
+  expandedFolders: Record<string, string[]>;
 }
 
 export async function loadSession(): Promise<RestoredSession | null> {
@@ -117,6 +126,7 @@ export async function loadSession(): Promise<RestoredSession | null> {
       })),
       activeProjectId: session.activeProjectId,
       activeTerminalId: session.activeTerminalId ?? null,
+      activeGroupId: session.activeGroupId ?? null,
       gridLayout: session.gridLayout,
       sidebarMode: (session.sidebarMode === "diff" || session.sidebarMode === "git") ? "scm" as const : session.sidebarMode as "code" | "scm" | "browser",
       sidebarVisible: session.sidebarVisible,
@@ -128,6 +138,7 @@ export async function loadSession(): Promise<RestoredSession | null> {
       explorerWidth: session.explorerWidth ?? 180,
       lastBrowserUrl: session.lastBrowserUrl ?? null,
       commitMessages: (session as any).commitMessages ?? {},
+      expandedFolders: session.expandedFolders ?? {},
     };
   } catch {
     return null;
@@ -137,7 +148,7 @@ export async function loadSession(): Promise<RestoredSession | null> {
 /** Re-spawn PTYs for all restored terminals */
 export async function respawnTerminals(
   projects: Project[],
-  onPtySpawned: (projectId: string, terminalId: string, ptyId: string) => void,
+  onPtySpawned: (projectId: string, terminalId: string, ptyId: string, isLlm: boolean) => void,
   options?: { defaultShell?: DefaultShell; defaultLlm?: DefaultLlm; customLlmCommand?: string },
 ) {
   const shellMap: Record<string, string> = {
@@ -158,10 +169,11 @@ export async function respawnTerminals(
           title: terminal.title,
           shell,
         });
-        onPtySpawned(project.id, terminal.id, ptyId);
-
         // Auto-run LLM command after shell is ready
         const cmd = getLlmCommand(options?.defaultLlm ?? "none", options?.customLlmCommand ?? "");
+        const isLlm = !!cmd;
+        onPtySpawned(project.id, terminal.id, ptyId, isLlm);
+        registerPtyLlm(ptyId, isLlm);
         if (cmd) {
           setTimeout(() => {
             const encoder = new TextEncoder();
