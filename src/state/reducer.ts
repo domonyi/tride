@@ -30,7 +30,7 @@ export const initialState: AppState = {
   scmChangesHeight: null,
   lastBrowserUrl: null,
   commitMessages: {},
-  editorTheme: cached.editorTheme ?? "tokyo-night",
+  editorTheme: cached.editorTheme ?? "dark-plus",
   defaultLlm: cached.defaultLlm ?? "none",
   customLlmCommand: cached.customLlmCommand ?? "",
   defaultShell: cached.defaultShell ?? (navigator.platform.startsWith("Win") ? "powershell" : "bash"),
