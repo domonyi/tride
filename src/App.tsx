@@ -1,14 +1,13 @@
-import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AppProvider, useAppState, useAppDispatch } from "./state/context";
 import { TitleBar } from "./components/TitleBar";
-import { ProjectTabs } from "./components/ProjectTabs";
-import { TerminalTabs } from "./components/TerminalTabs";
-import { GroupTabs } from "./components/GroupTabs";
 import { Sidebar } from "./components/Sidebar";
 import { ActionBar } from "./components/ActionBar";
 import { SearchBar } from "./components/SearchBar";
+import { LlmPanes } from "./components/LlmPanes";
+import { TerminalDrawer } from "./components/TerminalDrawer";
+import { ProjectTabs } from "./components/ProjectTabs";
 
-const TerminalGrid = lazy(() => import("./components/TerminalGrid").then((m) => ({ default: m.TerminalGrid })));
 import { saveSession, loadSession, respawnTerminals } from "./state/session";
 import { saveLayoutState } from "./state/localStorage";
 import { registerStatusSubscriber } from "./ptyBuffer";
@@ -29,13 +28,10 @@ function AppContent() {
     if (loadedRef.current) return;
     loadedRef.current = true;
 
-    // Request notification permission for terminal activity alerts
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
     }
 
-    // Tier 1 (projects, layout) is already in initialState from localStorage.
-    // Respawn PTYs immediately from the projects already in state.
     respawnTerminals(
       state.projects,
       (projectId, terminalId, ptyId, isLlm) => {
@@ -53,10 +49,8 @@ function AppContent() {
       },
     );
 
-    // Tier 2: load remaining state from session file
     loadSession().then((session) => {
       if (session) {
-        // Only apply Tier 2 values — Tier 1 is already loaded from localStorage
         dispatch({
           type: "RESTORE_SESSION",
           state: {
@@ -93,13 +87,11 @@ function AppContent() {
     });
   }, [dispatch]);
 
-  // Auto-save: localStorage immediately (Tier 1), session file debounced (all state)
+  // Auto-save
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!restoredRef.current) return;
-    // Tier 1: synchronous localStorage write — no delay
     saveLayoutState(state);
-    // Tier 2: debounced file write for everything
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       saveSession(state);
@@ -109,7 +101,7 @@ function AppContent() {
   // Global keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Alt+1/2/3 → sidebar modes
+      // Alt+1/2/3/4 → sidebar modes
       if (e.altKey && !e.ctrlKey && !e.metaKey) {
         const modeMap: Record<string, SidebarMode> = {
           "1": "code",
@@ -122,6 +114,13 @@ function AppContent() {
           dispatch({ type: "SET_SIDEBAR_MODE", mode: modeMap[e.key] });
           return;
         }
+      }
+
+      // Ctrl+` or Alt+5 → toggle terminal drawer
+      if ((e.ctrlKey && e.key === "`") || (e.altKey && e.key === "5")) {
+        e.preventDefault();
+        dispatch({ type: "TOGGLE_TERMINAL_DRAWER" });
+        return;
       }
 
       // F1-F9 → switch project by index
@@ -164,14 +163,13 @@ function AppContent() {
         <div className="terminal-column">
           <div className="tab-bar">
             <ProjectTabs />
-            <GroupTabs />
-            <TerminalTabs />
           </div>
-          <div className="terminal-area">
-            <Suspense fallback={null}>
-              <TerminalGrid />
-            </Suspense>
-          </div>
+
+          {/* Panes — always visible, main workspace */}
+          <LlmPanes />
+
+          {/* Terminal drawer — push-up from bottom */}
+          <TerminalDrawer />
         </div>
         <Sidebar />
       </div>

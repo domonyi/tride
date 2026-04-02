@@ -1,6 +1,45 @@
-import { AppState, AppAction, ClaudeSession, ClaudeMessage } from "../types";
-import { loadLayoutState } from "./localStorage";
+import { AppState, AppAction, ClaudeSession, ClaudeMessage, LlmPane, PanesState, PaneChatHistory, ProjectTabGroup } from "../types";
+import { loadLayoutState, restorePanesState } from "./localStorage";
 import { IS_WINDOWS } from "../utils/platform";
+import { getLayout, DEFAULT_LAYOUT_ID } from "../utils/paneUtils";
+
+// ── Panes Helpers ───────────────────────────────────────────────────────
+
+function createLlmPane(index: number): LlmPane {
+  return {
+    id: crypto.randomUUID(),
+    index,
+    label: "",
+    origin: "empty",
+  };
+}
+
+function createInitialPanesState(): PanesState {
+  const p1 = createLlmPane(0);
+  const p2 = createLlmPane(1);
+  return {
+    visible: false,
+    panes: { [p1.id]: p1, [p2.id]: p2 },
+    paneOrder: [p1.id, p2.id],
+    paneCount: 2,
+    layoutId: DEFAULT_LAYOUT_ID,
+    activePaneId: null,
+    lastActivePaneId: null,
+    broadcastOpen: false,
+    broadcastTargets: [p1.id, p2.id],
+    broadcastDraft: "",
+    chatHistory: [],
+  };
+}
+
+function updateLlmPane(ps: PanesState, paneId: string, updates: Partial<LlmPane>): PanesState {
+  const pane = ps.panes[paneId];
+  if (!pane) return ps;
+  return {
+    ...ps,
+    panes: { ...ps.panes, [paneId]: { ...pane, ...updates } },
+  };
+}
 
 const PROJECT_COLORS = [
   "#4a6fa5", // steel blue
@@ -36,9 +75,13 @@ export const initialState: AppState = {
   customLlmCommand: cached.customLlmCommand ?? "",
   defaultShell: cached.defaultShell ?? (IS_WINDOWS ? "powershell" : "bash"),
   tabOverflowMode: cached.tabOverflowMode ?? "arrows",
+  projectTabGroups: cached.projectTabGroups ?? [],
   expandedFolders: {},
   todos: cached.todos ?? [],
   claudeSessions: {},
+  panes: cached.panes ? restorePanesState(cached.panes) : createInitialPanesState(),
+  terminalDrawerOpen: false,
+  terminalDrawerHeight: 250,
 };
 
 export function appReducer(state: AppState, action: AppAction): AppState {
@@ -60,10 +103,15 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "REMOVE_PROJECT": {
       const remaining = state.projects.filter((p) => p.id !== action.projectId);
       const { [action.projectId]: _, ...remainingMessages } = state.commitMessages;
+      // Remove from any tab group
+      const cleanedGroups = state.projectTabGroups
+        .map((g) => ({ ...g, projectIds: g.projectIds.filter((id) => id !== action.projectId) }))
+        .filter((g) => g.projectIds.length > 0);
       return {
         ...state,
         projects: remaining,
         commitMessages: remainingMessages,
+        projectTabGroups: cleanedGroups,
         activeProjectId:
           state.activeProjectId === action.projectId
             ? remaining[0]?.id ?? null
@@ -235,6 +283,93 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const [moved] = projects.splice(action.fromIndex, 1);
       projects.splice(action.toIndex, 0, moved);
       return { ...state, projects };
+    }
+
+    // ── Project Tab Groups (Chrome-style) ──────────────────────────────
+
+    case "CREATE_PROJECT_GROUP": {
+      const group: ProjectTabGroup = {
+        id: crypto.randomUUID(),
+        name: action.name,
+        projectIds: action.projectIds,
+        collapsed: false,
+      };
+      // Remove these projects from any existing groups
+      const updatedGroups = state.projectTabGroups.map((g) => ({
+        ...g,
+        projectIds: g.projectIds.filter((id) => !action.projectIds.includes(id)),
+      }));
+      // Ensure grouped projects are contiguous in the projects array
+      const groupedSet = new Set(action.projectIds);
+      const groupedProjects = state.projects.filter((p) => groupedSet.has(p.id));
+      const ungroupedBefore = state.projects.filter(
+        (p) => !groupedSet.has(p.id) &&
+          state.projects.indexOf(p) <= state.projects.findIndex((pp) => groupedSet.has(pp.id))
+      );
+      const ungroupedAfter = state.projects.filter(
+        (p) => !groupedSet.has(p.id) && !ungroupedBefore.includes(p)
+      );
+      return {
+        ...state,
+        projects: [...ungroupedBefore, ...groupedProjects, ...ungroupedAfter],
+        projectTabGroups: [...updatedGroups.filter((g) => g.projectIds.length > 0), group],
+      };
+    }
+
+    case "REMOVE_PROJECT_GROUP": {
+      return {
+        ...state,
+        projectTabGroups: state.projectTabGroups.filter((g) => g.id !== action.groupId),
+      };
+    }
+
+    case "RENAME_PROJECT_GROUP": {
+      return {
+        ...state,
+        projectTabGroups: state.projectTabGroups.map((g) =>
+          g.id === action.groupId ? { ...g, name: action.name } : g
+        ),
+      };
+    }
+
+    case "TOGGLE_PROJECT_GROUP_COLLAPSE": {
+      return {
+        ...state,
+        projectTabGroups: state.projectTabGroups.map((g) =>
+          g.id === action.groupId ? { ...g, collapsed: !g.collapsed } : g
+        ),
+      };
+    }
+
+    case "ADD_TO_PROJECT_GROUP": {
+      // Remove from other groups first
+      let groups = state.projectTabGroups.map((g) => ({
+        ...g,
+        projectIds: g.projectIds.filter((id) => id !== action.projectId),
+      }));
+      // Add to target group
+      groups = groups.map((g) =>
+        g.id === action.groupId
+          ? { ...g, projectIds: [...g.projectIds, action.projectId] }
+          : g
+      );
+      return { ...state, projectTabGroups: groups };
+    }
+
+    case "REMOVE_FROM_PROJECT_GROUP": {
+      const groups = state.projectTabGroups.map((g) =>
+        g.id === action.groupId
+          ? { ...g, projectIds: g.projectIds.filter((id) => id !== action.projectId) }
+          : g
+      ).filter((g) => g.projectIds.length > 0);
+      return { ...state, projectTabGroups: groups };
+    }
+
+    case "UNGROUP_PROJECT_GROUP": {
+      return {
+        ...state,
+        projectTabGroups: state.projectTabGroups.filter((g) => g.id !== action.groupId),
+      };
     }
 
     case "REORDER_TERMINALS": {
@@ -649,6 +784,292 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "RESTORE_SESSION":
       return { ...state, ...action.state };
+
+    case "TOGGLE_TERMINAL_DRAWER":
+      return { ...state, terminalDrawerOpen: !state.terminalDrawerOpen };
+
+    case "SET_TERMINAL_DRAWER_HEIGHT":
+      return { ...state, terminalDrawerHeight: Math.max(100, Math.min(600, action.height)) };
+
+    // ── Panes Actions ──────────────────────────────────────────────────
+
+    case "PANES_SET_LAYOUT": {
+      const layout = getLayout(action.layoutId);
+      const count = layout.paneCount;
+      const ps = state.panes;
+      let { panes, paneOrder, broadcastTargets } = ps;
+
+      if (count > ps.paneCount) {
+        panes = { ...panes };
+        paneOrder = [...paneOrder];
+        broadcastTargets = [...broadcastTargets];
+        for (let i = ps.paneCount; i < count; i++) {
+          const p = createLlmPane(i);
+          panes[p.id] = p;
+          paneOrder.push(p.id);
+          broadcastTargets.push(p.id);
+        }
+      } else if (count < ps.paneCount) {
+        const removed = new Set(paneOrder.slice(count));
+        paneOrder = paneOrder.slice(0, count);
+        panes = { ...panes };
+        for (const id of removed) delete panes[id];
+        broadcastTargets = broadcastTargets.filter((id) => !removed.has(id));
+      }
+
+      return {
+        ...state,
+        panes: {
+          ...ps,
+          panes,
+          paneOrder,
+          paneCount: count,
+          layoutId: action.layoutId,
+          broadcastTargets,
+          activePaneId: ps.activePaneId && panes[ps.activePaneId] ? ps.activePaneId : null,
+          lastActivePaneId: ps.lastActivePaneId && panes[ps.lastActivePaneId] ? ps.lastActivePaneId : null,
+        },
+      };
+    }
+
+    case "PANES_SET_ACTIVE_PANE":
+      return {
+        ...state,
+        panes: {
+          ...state.panes,
+          activePaneId: action.paneId,
+          lastActivePaneId: action.paneId,
+        },
+      };
+
+    case "PANES_CLEAR_FOCUS":
+      return {
+        ...state,
+        panes: { ...state.panes, activePaneId: null },
+      };
+
+    case "PANES_TOGGLE_BROADCAST":
+      return {
+        ...state,
+        panes: {
+          ...state.panes,
+          broadcastOpen: !state.panes.broadcastOpen,
+          broadcastTargets: !state.panes.broadcastOpen ? [...state.panes.paneOrder] : state.panes.broadcastTargets,
+        },
+      };
+
+    case "PANES_CLOSE_BROADCAST":
+      return { ...state, panes: { ...state.panes, broadcastOpen: false, broadcastDraft: "" } };
+
+    case "PANES_SET_BROADCAST_DRAFT":
+      return { ...state, panes: { ...state.panes, broadcastDraft: action.text } };
+
+    case "PANES_TOGGLE_BROADCAST_TARGET": {
+      const targets = state.panes.broadcastTargets;
+      const has = targets.includes(action.paneId);
+      return {
+        ...state,
+        panes: {
+          ...state.panes,
+          broadcastTargets: has ? targets.filter((id) => id !== action.paneId) : [...targets, action.paneId],
+        },
+      };
+    }
+
+    case "PANES_SELECT_ALL_TARGETS":
+      return { ...state, panes: { ...state.panes, broadcastTargets: [...state.panes.paneOrder] } };
+
+    case "PANES_START_LOCAL": {
+      const pane = state.panes.panes[action.paneId];
+      if (!pane) return state;
+      const historyId = crypto.randomUUID();
+      const entry: PaneChatHistory = {
+        id: historyId,
+        name: "New Chat",
+        timestamp: Date.now(),
+        origin: "local",
+        sessionId: `pane-${pane.id}`,
+      };
+      return {
+        ...state,
+        panes: {
+          ...updateLlmPane(state.panes, action.paneId, {
+            origin: "local",
+            label: "New Chat",
+            chatHistoryId: historyId,
+            worktreeSetup: false,
+          }),
+          chatHistory: [entry, ...state.panes.chatHistory],
+        },
+      };
+    }
+
+    case "PANES_CLEAR_PANE": {
+      const pane = state.panes.panes[action.paneId];
+      if (!pane) return state;
+      // Save to history if it had a session
+      let chatHistory = state.panes.chatHistory;
+      if (pane.origin !== "empty") {
+        const entry: PaneChatHistory = {
+          id: pane.chatHistoryId ?? crypto.randomUUID(),
+          name: pane.label || "Untitled",
+          timestamp: Date.now(),
+          origin: pane.origin === "worktree" ? "worktree" : "local",
+          branch: pane.branch,
+          sessionId: `pane-${pane.id}`,
+          sdkSessionId: pane.sdkSessionId,
+        };
+        const existingIdx = chatHistory.findIndex((h) => h.id === entry.id);
+        if (existingIdx >= 0) {
+          chatHistory = [...chatHistory];
+          chatHistory[existingIdx] = entry;
+        } else {
+          chatHistory = [entry, ...chatHistory];
+        }
+      }
+      return {
+        ...state,
+        panes: {
+          ...updateLlmPane(state.panes, action.paneId, {
+            origin: "empty",
+            label: "",
+            branch: undefined,
+            worktreePath: undefined,
+            chatHistoryId: undefined,
+            worktreeSetup: false,
+          }),
+          chatHistory,
+        },
+      };
+    }
+
+    case "PANES_CLEAR_ALL": {
+      let chatHistory = [...state.panes.chatHistory];
+      const panes = { ...state.panes.panes };
+      for (const id of state.panes.paneOrder) {
+        const pane = panes[id];
+        if (pane.origin !== "empty") {
+          const entry: PaneChatHistory = {
+            id: pane.chatHistoryId ?? crypto.randomUUID(),
+            name: pane.label || "Untitled",
+            timestamp: Date.now(),
+            origin: pane.origin === "worktree" ? "worktree" : "local",
+            branch: pane.branch,
+            sessionId: `pane-${pane.id}`,
+          };
+          const existingIdx = chatHistory.findIndex((h) => h.id === entry.id);
+          if (existingIdx >= 0) {
+            chatHistory[existingIdx] = entry;
+          } else {
+            chatHistory = [entry, ...chatHistory];
+          }
+        }
+        panes[id] = { ...pane, origin: "empty", label: "", branch: undefined, worktreePath: undefined, chatHistoryId: undefined, worktreeSetup: false };
+      }
+      return {
+        ...state,
+        panes: {
+          ...state.panes,
+          panes,
+          chatHistory,
+          activePaneId: null,
+          lastActivePaneId: null,
+          broadcastOpen: false,
+          broadcastDraft: "",
+        },
+      };
+    }
+
+    case "PANES_START_WORKTREE_SETUP":
+      return { ...state, panes: updateLlmPane(state.panes, action.paneId, { worktreeSetup: true }) };
+
+    case "PANES_CANCEL_WORKTREE_SETUP":
+      return { ...state, panes: updateLlmPane(state.panes, action.paneId, { worktreeSetup: false }) };
+
+    case "PANES_CREATE_WORKTREE": {
+      const pane = state.panes.panes[action.paneId];
+      if (!pane) return state;
+      const worktreePath = `/tmp/tride-worktrees/${action.branch}`;
+      const wtHistoryId = crypto.randomUUID();
+      const wtEntry: PaneChatHistory = {
+        id: wtHistoryId,
+        name: action.branch,
+        timestamp: Date.now(),
+        origin: "worktree",
+        branch: action.branch,
+        sessionId: `pane-${pane.id}`,
+      };
+      return {
+        ...state,
+        panes: {
+          ...updateLlmPane(state.panes, action.paneId, {
+            origin: "worktree",
+            branch: action.branch,
+            worktreePath,
+            worktreeSetup: false,
+            label: action.branch,
+            chatHistoryId: wtHistoryId,
+          }),
+          chatHistory: [wtEntry, ...state.panes.chatHistory],
+        },
+      };
+    }
+
+    case "PANES_RESUME_CHAT": {
+      const pane = state.panes.panes[action.paneId];
+      const historyEntry = state.panes.chatHistory.find((h) => h.id === action.historyId);
+      if (!pane || !historyEntry) return state;
+      return {
+        ...state,
+        panes: updateLlmPane(state.panes, action.paneId, {
+          origin: historyEntry.origin === "worktree" ? "worktree" : "local",
+          label: historyEntry.name,
+          branch: historyEntry.branch,
+          chatHistoryId: historyEntry.id,
+          sdkSessionId: historyEntry.sdkSessionId,
+          worktreeSetup: false,
+        }),
+      };
+    }
+
+    case "PANES_DELETE_HISTORY":
+      return {
+        ...state,
+        panes: {
+          ...state.panes,
+          chatHistory: state.panes.chatHistory.filter((h) => h.id !== action.historyId),
+        },
+      };
+
+    case "PANES_SET_SDK_SESSION_ID": {
+      const updatedPs = updateLlmPane(state.panes, action.paneId, { sdkSessionId: action.sdkSessionId });
+      // Also update the matching history entry
+      const p = updatedPs.panes[action.paneId];
+      if (p?.chatHistoryId) {
+        const hIdx = updatedPs.chatHistory.findIndex((h) => h.id === p.chatHistoryId);
+        if (hIdx >= 0) {
+          const updatedHistory = [...updatedPs.chatHistory];
+          updatedHistory[hIdx] = { ...updatedHistory[hIdx], sdkSessionId: action.sdkSessionId };
+          return { ...state, panes: { ...updatedPs, chatHistory: updatedHistory } };
+        }
+      }
+      return { ...state, panes: updatedPs };
+    }
+
+    case "PANES_UPDATE_LABEL": {
+      const updatedPs = updateLlmPane(state.panes, action.paneId, { label: action.label });
+      // Also update the matching history entry name
+      const p = updatedPs.panes[action.paneId];
+      if (p?.chatHistoryId) {
+        const hIdx = updatedPs.chatHistory.findIndex((h) => h.id === p.chatHistoryId);
+        if (hIdx >= 0) {
+          const updatedHistory = [...updatedPs.chatHistory];
+          updatedHistory[hIdx] = { ...updatedHistory[hIdx], name: action.label };
+          return { ...state, panes: { ...updatedPs, chatHistory: updatedHistory } };
+        }
+      }
+      return { ...state, panes: updatedPs };
+    }
 
     default:
       return state;

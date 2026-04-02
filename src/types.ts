@@ -65,6 +65,13 @@ export interface TerminalGroup {
   terminalIds: string[];
 }
 
+export interface ProjectTabGroup {
+  id: string;
+  name: string;
+  projectIds: string[];
+  collapsed: boolean;
+}
+
 export interface GridLayout {
   rows: number;
   cols: number;
@@ -82,6 +89,46 @@ export interface TodoItem {
 export type DefaultLlm = "none" | "claude" | "codex" | "custom";
 export type DefaultShell = "powershell" | "cmd" | "bash" | "zsh" | "fish";
 export type TabOverflowMode = "arrows" | "multiline";
+
+// ── LLM Pane Types ───────────────────────────────────────────────────────
+
+export type PaneOrigin = "empty" | "local" | "worktree";
+
+export interface PaneChatHistory {
+  id: string;
+  name: string;
+  timestamp: number;
+  origin: "local" | "worktree";
+  branch?: string;
+  sessionId: string;
+  sdkSessionId?: string;  // Claude SDK session ID for resume
+}
+
+export interface LlmPane {
+  id: string;
+  index: number;
+  label: string;
+  origin: PaneOrigin;
+  branch?: string;
+  worktreePath?: string;
+  chatHistoryId?: string;
+  worktreeSetup?: boolean;
+  sdkSessionId?: string;  // Claude SDK session ID for resume
+}
+
+export interface PanesState {
+  visible: boolean;
+  panes: Record<string, LlmPane>;
+  paneOrder: string[];
+  paneCount: number;
+  layoutId: string;
+  activePaneId: string | null;
+  lastActivePaneId: string | null;
+  broadcastOpen: boolean;
+  broadcastTargets: string[];
+  broadcastDraft: string;
+  chatHistory: PaneChatHistory[];
+}
 
 export interface AppState {
   projects: Project[];
@@ -104,9 +151,13 @@ export interface AppState {
   customLlmCommand: string;
   defaultShell: DefaultShell;
   tabOverflowMode: TabOverflowMode;
+  projectTabGroups: ProjectTabGroup[];
   expandedFolders: Record<string, string[]>;
   todos: TodoItem[];
   claudeSessions: Record<string, ClaudeSession>;
+  panes: PanesState;
+  terminalDrawerOpen: boolean;
+  terminalDrawerHeight: number;
 }
 
 export type AppAction =
@@ -144,6 +195,13 @@ export type AppAction =
   | { type: "REMOVE_FROM_GROUP"; projectId: string; groupId: string; terminalId: string }
   | { type: "REORDER_GROUPS"; projectId: string; fromIndex: number; toIndex: number }
   | { type: "SET_PROJECT_COLOR"; projectId: string; color: string }
+  | { type: "CREATE_PROJECT_GROUP"; name: string; projectIds: string[] }
+  | { type: "REMOVE_PROJECT_GROUP"; groupId: string }
+  | { type: "RENAME_PROJECT_GROUP"; groupId: string; name: string }
+  | { type: "TOGGLE_PROJECT_GROUP_COLLAPSE"; groupId: string }
+  | { type: "ADD_TO_PROJECT_GROUP"; groupId: string; projectId: string }
+  | { type: "REMOVE_FROM_PROJECT_GROUP"; groupId: string; projectId: string }
+  | { type: "UNGROUP_PROJECT_GROUP"; groupId: string }
   | { type: "SET_EXPANDED_FOLDERS"; rootPath: string; folders: string[] }
   | { type: "ADD_TODO"; todo: TodoItem }
   | { type: "UPDATE_TODO"; todoId: string; updates: Partial<TodoItem> }
@@ -164,4 +222,25 @@ export type AppAction =
   | { type: "CLAUDE_ERROR"; sessionId: string; message: string }
   | { type: "CLAUDE_REMOVE_SESSION"; sessionId: string }
   | { type: "CLAUDE_USER_MESSAGE"; sessionId: string; text: string }
-  | { type: "RESTORE_SESSION"; state: Partial<AppState> };
+  | { type: "RESTORE_SESSION"; state: Partial<AppState> }
+  | { type: "TOGGLE_TERMINAL_DRAWER" }
+  | { type: "SET_TERMINAL_DRAWER_HEIGHT"; height: number }
+  // ── Panes Actions ──────────────────────────────────────────────────
+  | { type: "PANES_SET_LAYOUT"; layoutId: string }
+  | { type: "PANES_SET_ACTIVE_PANE"; paneId: string }
+  | { type: "PANES_CLEAR_FOCUS" }
+  | { type: "PANES_TOGGLE_BROADCAST" }
+  | { type: "PANES_CLOSE_BROADCAST" }
+  | { type: "PANES_SET_BROADCAST_DRAFT"; text: string }
+  | { type: "PANES_TOGGLE_BROADCAST_TARGET"; paneId: string }
+  | { type: "PANES_SELECT_ALL_TARGETS" }
+  | { type: "PANES_CLEAR_PANE"; paneId: string }
+  | { type: "PANES_CLEAR_ALL" }
+  | { type: "PANES_START_LOCAL"; paneId: string }
+  | { type: "PANES_START_WORKTREE_SETUP"; paneId: string }
+  | { type: "PANES_CANCEL_WORKTREE_SETUP"; paneId: string }
+  | { type: "PANES_CREATE_WORKTREE"; paneId: string; branch: string; baseBranch: string }
+  | { type: "PANES_RESUME_CHAT"; paneId: string; historyId: string }
+  | { type: "PANES_DELETE_HISTORY"; historyId: string }
+  | { type: "PANES_SET_SDK_SESSION_ID"; paneId: string; sdkSessionId: string }
+  | { type: "PANES_UPDATE_LABEL"; paneId: string; label: string };

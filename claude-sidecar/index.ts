@@ -224,7 +224,7 @@ function handleCommand(cmd: SidecarCommand) {
         running: false,
       };
       sessions.set(cmd.sessionId, session);
-      emit({ type: "session_started", sessionId: cmd.sessionId, sdkSessionId: cmd.sessionId });
+      emit({ type: "session_started", sessionId: cmd.sessionId, sdkSessionId: cmd.resumeSessionId ?? cmd.sessionId });
       runTurn(cmd.sessionId, cmd.prompt);
       break;
     }

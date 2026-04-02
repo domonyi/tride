@@ -21,7 +21,7 @@ type StatusSubscriber = (ptyId: string, status: TerminalStatus) => void;
  * Also tracks terminal status (idle/running/waiting/done/error).
  */
 
-const MAX_BUFFER_BYTES = 1_000_000; // ~1MB per PTY
+const MAX_BUFFER_BYTES = 5_000_000; // ~5MB per PTY
 const IDLE_DEBOUNCE_MS = 3_000;
 const RUNNING_DELAY_MS = 300; // delay before showing "running" to filter noise (focus, resize, status line)
 const RECENT_OUTPUT_MAX = 4_000; // bytes of recent output to keep for heuristic

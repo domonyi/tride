@@ -9,28 +9,86 @@ interface ClaudeEventPayload {
   data: string;
 }
 
+interface HistoryMessage {
+  role: "user" | "assistant";
+  text: string;
+}
+
+/** Read a Claude SDK session JSONL and extract user/assistant messages */
+async function loadSessionHistory(sdkSessionId: string, cwd: string): Promise<HistoryMessage[]> {
+  try {
+    const homeDir = await invoke<string>("get_home_dir");
+    // Encode project path: C:\DEV\Tride -> C--DEV-Tride
+    const normalized = cwd.replace(/\\/g, "/");
+    const encoded = normalized.replace(/:/g, "-").replace(/\//g, "-");
+    const jsonlPath = `${homeDir}/.claude/projects/${encoded}/${sdkSessionId}.jsonl`;
+
+    const content = await invoke<string>("read_file", { path: jsonlPath });
+    const lines = content.split("\n").filter(Boolean);
+    const messages: HistoryMessage[] = [];
+    const seenTexts = new Set<string>();
+
+    for (const line of lines) {
+      try {
+        const obj = JSON.parse(line);
+        if (obj.type === "user" && obj.message?.content) {
+          const text = typeof obj.message.content === "string"
+            ? obj.message.content
+            : "";
+          if (text && !seenTexts.has(`u:${text}`)) {
+            seenTexts.add(`u:${text}`);
+            messages.push({ role: "user", text });
+          }
+        } else if (obj.type === "assistant" && Array.isArray(obj.message?.content)) {
+          for (const block of obj.message.content) {
+            if (block.type === "text" && block.text) {
+              const key = `a:${block.text}`;
+              if (!seenTexts.has(key)) {
+                seenTexts.add(key);
+                messages.push({ role: "assistant", text: block.text });
+              }
+            }
+          }
+        }
+      } catch {
+        // skip malformed lines
+      }
+    }
+
+    return messages;
+  } catch {
+    return [];
+  }
+}
+
 interface UseClaudeTerminalOptions {
   sessionId: string;
   cwd: string;
   isActive?: boolean;
+  resumeSessionId?: string;
   onStatusChange?: (status: string) => void;
   onToolApproval?: (toolCall: ClaudeToolCall) => void;
   onToolApprovalResolved?: (toolUseId: string) => void;
   onTurnComplete?: (totalCost: number) => void;
   onModelInfo?: (model: string) => void;
+  onSdkSessionId?: (sdkSessionId: string) => void;
   onError?: (message: string) => void;
+  onFirstMessage?: (text: string) => void;
 }
 
 export function useClaudeTerminal({
   sessionId,
   cwd,
   isActive,
+  resumeSessionId,
   onStatusChange,
   onToolApproval,
   onToolApprovalResolved,
   onTurnComplete,
   onModelInfo,
+  onSdkSessionId,
   onError,
+  onFirstMessage,
 }: UseClaudeTerminalOptions) {
   const containerRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
@@ -51,8 +109,15 @@ export function useClaudeTerminal({
   onTurnCompleteRef.current = onTurnComplete;
   const onModelInfoRef = useRef(onModelInfo);
   onModelInfoRef.current = onModelInfo;
+  const onSdkSessionIdRef = useRef(onSdkSessionId);
+  onSdkSessionIdRef.current = onSdkSessionId;
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
+  const onFirstMessageRef = useRef(onFirstMessage);
+  onFirstMessageRef.current = onFirstMessage;
+  const firstMessageFiredRef = useRef(false);
+  const resumeSessionIdRef = useRef(resumeSessionId);
+  resumeSessionIdRef.current = resumeSessionId;
 
   // Initialize xterm
   useEffect(() => {
@@ -97,11 +162,26 @@ export function useClaudeTerminal({
       try { fitAddon.fit(); } catch {}
     });
 
-    // Show prompt
-    xterm.write("\x1b[36m❯\x1b[0m ");
-
     xtermRef.current = xterm;
     fitAddonRef.current = fitAddon;
+
+    // Load and render history if resuming
+    if (resumeSessionIdRef.current) {
+      loadSessionHistory(resumeSessionIdRef.current, cwd).then((messages) => {
+        for (const msg of messages) {
+          if (msg.role === "user") {
+            xterm.write(`\r\n\x1b[36m❯\x1b[0m \x1b[1m${msg.text.replace(/\n/g, "\r\n")}\x1b[0m\r\n`);
+          } else if (msg.role === "assistant") {
+            xterm.write(`\r\n${msg.text.replace(/\n/g, "\r\n")}\r\n`);
+          }
+        }
+        xterm.write("\r\n\x1b[36m❯\x1b[0m ");
+      }).catch(() => {
+        xterm.write("\x1b[36m❯\x1b[0m ");
+      });
+    } else {
+      xterm.write("\x1b[36m❯\x1b[0m ");
+    }
 
     return () => {
       xterm.dispose();
@@ -133,10 +213,16 @@ export function useClaudeTerminal({
         if (text) {
           if (!startedRef.current) {
             startedRef.current = true;
+            // Name the chat after the user's first message
+            if (!firstMessageFiredRef.current && onFirstMessageRef.current) {
+              firstMessageFiredRef.current = true;
+              onFirstMessageRef.current(text);
+            }
             invoke("claude_start", {
               sessionId: sessionIdRef.current,
               cwd,
               prompt: text,
+              resumeSessionId: resumeSessionIdRef.current || undefined,
             }).catch((err: any) => {
               xterm.write(`\x1b[31mError: ${err}\x1b[0m\r\n`);
             });
@@ -196,6 +282,9 @@ export function useClaudeTerminal({
           case "session_started":
             if (parsed.model) {
               onModelInfoRef.current?.(parsed.model);
+            }
+            if (parsed.sdkSessionId) {
+              onSdkSessionIdRef.current?.(parsed.sdkSessionId);
             }
             break;
 
