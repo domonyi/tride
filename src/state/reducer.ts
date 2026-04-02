@@ -1,4 +1,4 @@
-import { AppState, AppAction } from "../types";
+import { AppState, AppAction, ClaudeSession, ClaudeMessage } from "../types";
 import { loadLayoutState } from "./localStorage";
 import { IS_WINDOWS } from "../utils/platform";
 
@@ -38,6 +38,7 @@ export const initialState: AppState = {
   tabOverflowMode: cached.tabOverflowMode ?? "arrows",
   expandedFolders: {},
   todos: cached.todos ?? [],
+  claudeSessions: {},
 };
 
 export function appReducer(state: AppState, action: AppAction): AppState {
@@ -360,6 +361,290 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           return { ...p, terminalGroups: groups };
         }),
       };
+    }
+
+    // ── Claude Session Actions ──────────────────────────────────────────
+
+    case "CLAUDE_SESSION_STARTED": {
+      const existing = state.claudeSessions[action.sessionId];
+      if (existing) {
+        // Session already exists (created optimistically) — just update metadata
+        return {
+          ...state,
+          claudeSessions: {
+            ...state.claudeSessions,
+            [action.sessionId]: {
+              ...existing,
+              sdkSessionId: action.sdkSessionId || existing.sdkSessionId,
+              model: action.model || existing.model,
+            },
+          },
+        };
+      }
+      const session: ClaudeSession = {
+        sessionId: action.sessionId,
+        sdkSessionId: action.sdkSessionId,
+        model: action.model,
+        messages: [],
+        status: "idle",
+        streamingText: "",
+        streamingThinking: "",
+        pendingApprovals: [],
+        totalCost: 0,
+      };
+      return { ...state, claudeSessions: { ...state.claudeSessions, [action.sessionId]: session } };
+    }
+
+    case "CLAUDE_USER_MESSAGE": {
+      const cs = state.claudeSessions[action.sessionId];
+      if (!cs) return state;
+      const msg: ClaudeMessage = {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: action.text,
+        toolCalls: [],
+        timestamp: Date.now(),
+      };
+      return {
+        ...state,
+        claudeSessions: {
+          ...state.claudeSessions,
+          [action.sessionId]: { ...cs, messages: [...cs.messages, msg] },
+        },
+      };
+    }
+
+    case "CLAUDE_TEXT_DELTA": {
+      const cs = state.claudeSessions[action.sessionId];
+      if (!cs) return state;
+      return {
+        ...state,
+        claudeSessions: {
+          ...state.claudeSessions,
+          [action.sessionId]: { ...cs, streamingText: cs.streamingText + action.text },
+        },
+      };
+    }
+
+    case "CLAUDE_THINKING_DELTA": {
+      const cs = state.claudeSessions[action.sessionId];
+      if (!cs) return state;
+      return {
+        ...state,
+        claudeSessions: {
+          ...state.claudeSessions,
+          [action.sessionId]: { ...cs, streamingThinking: cs.streamingThinking + action.text },
+        },
+      };
+    }
+
+    case "CLAUDE_TEXT_DONE": {
+      const cs = state.claudeSessions[action.sessionId];
+      if (!cs) return state;
+      const msg: ClaudeMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: action.text,
+        thinking: cs.streamingThinking || undefined,
+        toolCalls: [],
+        timestamp: Date.now(),
+      };
+      return {
+        ...state,
+        claudeSessions: {
+          ...state.claudeSessions,
+          [action.sessionId]: {
+            ...cs,
+            messages: [...cs.messages, msg],
+            streamingText: "",
+            streamingThinking: "",
+          },
+        },
+      };
+    }
+
+    case "CLAUDE_TOOL_USE_START": {
+      const cs = state.claudeSessions[action.sessionId];
+      if (!cs) return state;
+      // Attach to the last assistant message
+      const msgs = [...cs.messages];
+      const lastAssistant = [...msgs].reverse().find((m) => m.role === "assistant");
+      if (lastAssistant) {
+        const idx = msgs.indexOf(lastAssistant);
+        msgs[idx] = { ...lastAssistant, toolCalls: [...lastAssistant.toolCalls, action.toolCall] };
+      }
+      return {
+        ...state,
+        claudeSessions: {
+          ...state.claudeSessions,
+          [action.sessionId]: { ...cs, messages: msgs },
+        },
+      };
+    }
+
+    case "CLAUDE_TOOL_APPROVAL_REQUIRED": {
+      const cs = state.claudeSessions[action.sessionId];
+      if (!cs) return state;
+      const projects = state.projects.map((p) => ({
+        ...p,
+        terminals: p.terminals.map((t) =>
+          t.claudeSessionId === action.sessionId ? { ...t, status: "waiting" as const } : t
+        ),
+      }));
+      return {
+        ...state,
+        projects,
+        claudeSessions: {
+          ...state.claudeSessions,
+          [action.sessionId]: {
+            ...cs,
+            pendingApprovals: [...cs.pendingApprovals, action.toolCall],
+            status: "waiting",
+          },
+        },
+      };
+    }
+
+    case "CLAUDE_TOOL_APPROVED": {
+      const cs = state.claudeSessions[action.sessionId];
+      if (!cs) return state;
+      return {
+        ...state,
+        claudeSessions: {
+          ...state.claudeSessions,
+          [action.sessionId]: {
+            ...cs,
+            pendingApprovals: cs.pendingApprovals.filter((t) => t.toolUseId !== action.toolUseId),
+          },
+        },
+      };
+    }
+
+    case "CLAUDE_TOOL_DENIED": {
+      const cs = state.claudeSessions[action.sessionId];
+      if (!cs) return state;
+      return {
+        ...state,
+        claudeSessions: {
+          ...state.claudeSessions,
+          [action.sessionId]: {
+            ...cs,
+            pendingApprovals: cs.pendingApprovals.filter((t) => t.toolUseId !== action.toolUseId),
+          },
+        },
+      };
+    }
+
+    case "CLAUDE_TOOL_DONE": {
+      const cs = state.claudeSessions[action.sessionId];
+      if (!cs) return state;
+      // Update tool call status in messages
+      const msgs = cs.messages.map((m) => ({
+        ...m,
+        toolCalls: m.toolCalls.map((tc) =>
+          tc.toolUseId === action.toolUseId
+            ? { ...tc, status: "done" as const, output: action.output }
+            : tc
+        ),
+      }));
+      return {
+        ...state,
+        claudeSessions: {
+          ...state.claudeSessions,
+          [action.sessionId]: { ...cs, messages: msgs },
+        },
+      };
+    }
+
+    case "CLAUDE_TOOL_INPUT_DELTA": {
+      // Could accumulate streaming tool input — for now just skip
+      return state;
+    }
+
+    case "CLAUDE_STATUS_CHANGE": {
+      const cs = state.claudeSessions[action.sessionId];
+      if (!cs) return state;
+      // Also sync status to any terminal linked to this session
+      const projects = state.projects.map((p) => ({
+        ...p,
+        terminals: p.terminals.map((t) =>
+          t.claudeSessionId === action.sessionId ? { ...t, status: action.status } : t
+        ),
+      }));
+      return {
+        ...state,
+        projects,
+        claudeSessions: {
+          ...state.claudeSessions,
+          [action.sessionId]: { ...cs, status: action.status },
+        },
+      };
+    }
+
+    case "CLAUDE_TURN_COMPLETE": {
+      const cs = state.claudeSessions[action.sessionId];
+      if (!cs) return state;
+      // Flush any remaining streaming text as a message
+      let msgs = cs.messages;
+      if (cs.streamingText) {
+        msgs = [...msgs, {
+          id: crypto.randomUUID(),
+          role: "assistant" as const,
+          content: cs.streamingText,
+          thinking: cs.streamingThinking || undefined,
+          toolCalls: [],
+          timestamp: Date.now(),
+        }];
+      }
+      const projects = state.projects.map((p) => ({
+        ...p,
+        terminals: p.terminals.map((t) =>
+          t.claudeSessionId === action.sessionId ? { ...t, status: "idle" as const } : t
+        ),
+      }));
+      return {
+        ...state,
+        projects,
+        claudeSessions: {
+          ...state.claudeSessions,
+          [action.sessionId]: {
+            ...cs,
+            messages: msgs,
+            streamingText: "",
+            streamingThinking: "",
+            status: "idle",
+            totalCost: action.totalCost ?? cs.totalCost,
+          },
+        },
+      };
+    }
+
+    case "CLAUDE_ERROR": {
+      const cs = state.claudeSessions[action.sessionId];
+      if (!cs) return state;
+      const errMsg: ClaudeMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: `Error: ${action.message}`,
+        toolCalls: [],
+        timestamp: Date.now(),
+      };
+      return {
+        ...state,
+        claudeSessions: {
+          ...state.claudeSessions,
+          [action.sessionId]: {
+            ...cs,
+            messages: [...cs.messages, errMsg],
+            status: "error",
+          },
+        },
+      };
+    }
+
+    case "CLAUDE_REMOVE_SESSION": {
+      const { [action.sessionId]: _, ...rest } = state.claudeSessions;
+      return { ...state, claudeSessions: rest };
     }
 
     case "RESTORE_SESSION":

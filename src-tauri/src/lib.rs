@@ -1,8 +1,10 @@
+mod claude;
 mod fs;
 mod git;
 mod lsp;
 mod pty;
 
+use claude::ClaudeManager;
 use lsp::LspManager;
 use pty::PtyManager;
 use std::sync::Arc;
@@ -11,6 +13,7 @@ use tauri::{AppHandle, State};
 struct AppState {
     pty_manager: Arc<PtyManager>,
     lsp_manager: Arc<LspManager>,
+    claude_manager: Arc<ClaudeManager>,
 }
 
 // ── Terminal Commands ───────────────────────────────────────────────────────
@@ -376,6 +379,72 @@ fn get_app_dir() -> Result<String, String> {
         .map(|p| p.parent().unwrap_or(&p).to_string_lossy().to_string())
 }
 
+// ── Claude Commands ─────────────────────────────────────────────────────────
+
+#[tauri::command]
+fn claude_start(
+    app: AppHandle,
+    state: State<AppState>,
+    session_id: String,
+    cwd: String,
+    prompt: String,
+    model: Option<String>,
+    resume_session_id: Option<String>,
+) -> Result<(), String> {
+    state.claude_manager.start(
+        &app,
+        &session_id,
+        &cwd,
+        &prompt,
+        model.as_deref(),
+        resume_session_id.as_deref(),
+    )
+}
+
+#[tauri::command]
+fn claude_send(
+    state: State<AppState>,
+    session_id: String,
+    message: String,
+) -> Result<(), String> {
+    state.claude_manager.send(&session_id, &message)
+}
+
+#[tauri::command]
+fn claude_approve(
+    state: State<AppState>,
+    session_id: String,
+    tool_use_id: String,
+) -> Result<(), String> {
+    state.claude_manager.approve(&session_id, &tool_use_id)
+}
+
+#[tauri::command]
+fn claude_deny(
+    state: State<AppState>,
+    session_id: String,
+    tool_use_id: String,
+    reason: Option<String>,
+) -> Result<(), String> {
+    state.claude_manager.deny(&session_id, &tool_use_id, reason.as_deref())
+}
+
+#[tauri::command]
+fn claude_abort(
+    state: State<AppState>,
+    session_id: String,
+) -> Result<(), String> {
+    state.claude_manager.abort(&session_id)
+}
+
+#[tauri::command]
+fn claude_kill(
+    state: State<AppState>,
+    session_id: String,
+) -> Result<(), String> {
+    state.claude_manager.kill_session(&session_id)
+}
+
 // ── App Entry ───────────────────────────────────────────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -387,6 +456,7 @@ pub fn run() {
         .manage(AppState {
             pty_manager: Arc::new(PtyManager::new()),
             lsp_manager: Arc::new(LspManager::new()),
+            claude_manager: Arc::new(ClaudeManager::new()),
         })
         .invoke_handler(tauri::generate_handler![
             spawn_terminal,
@@ -435,6 +505,12 @@ pub fn run() {
             lsp_stop,
             get_app_dir,
             save_clipboard_image,
+            claude_start,
+            claude_send,
+            claude_approve,
+            claude_deny,
+            claude_abort,
+            claude_kill,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

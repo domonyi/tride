@@ -10,6 +10,7 @@ interface SavedTerminal {
   mode: "worktree" | "instance";
   branch?: string;
   worktreePath?: string;
+  claudeSessionId?: string;
 }
 
 interface SavedSession {
@@ -60,6 +61,7 @@ export async function saveSession(state: AppState): Promise<void> {
         mode: t.mode,
         branch: t.branch,
         worktreePath: t.worktreePath,
+        claudeSessionId: t.claudeSessionId,
       })),
       terminalGroups: p.terminalGroups,
     })),
@@ -122,6 +124,8 @@ export async function loadSession(): Promise<RestoredSession | null> {
           ptyId: null, // will be re-spawned
           status: "idle" as const,
           worktreePath: t.worktreePath,
+          // Generate new session ID for Claude terminals (old sessions can't resume across restarts)
+          claudeSessionId: t.claudeSessionId ? crypto.randomUUID() : undefined,
         })),
       })),
       activeProjectId: session.activeProjectId,
@@ -163,6 +167,7 @@ export async function respawnTerminals(
   for (const project of projects) {
     for (const terminal of project.terminals) {
       if (terminal.ptyId) continue; // already has a PTY
+      if (terminal.claudeSessionId) continue; // Claude SDK session — no PTY needed
       try {
         const ptyId = await invoke<string>("spawn_terminal", {
           cwd: terminal.cwd,

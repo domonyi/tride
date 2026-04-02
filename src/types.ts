@@ -19,9 +19,44 @@ export interface Terminal {
   worktreePath?: string; // absolute path to the git worktree directory
   filesChanged?: number;
   isLlm?: boolean;
+  claudeSessionId?: string; // links to a Claude SDK session
   splitDirection?: "horizontal" | "vertical";
   splitChildId?: string;
   splitParentId?: string;
+}
+
+// ── Claude Session Types ────────────────────────────────────────────────────
+
+export interface ClaudeToolCall {
+  toolUseId: string;
+  toolName: string;
+  input: unknown;
+  inputDelta: string; // accumulates streaming input JSON
+  output?: string;
+  status: "pending_approval" | "approved" | "denied" | "running" | "done" | "error";
+  title?: string;
+  description?: string;
+}
+
+export interface ClaudeMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  toolCalls: ClaudeToolCall[];
+  thinking?: string;
+  timestamp: number;
+}
+
+export interface ClaudeSession {
+  sessionId: string;
+  sdkSessionId?: string;
+  messages: ClaudeMessage[];
+  status: "idle" | "running" | "waiting" | "done" | "error";
+  streamingText: string;
+  streamingThinking: string;
+  pendingApprovals: ClaudeToolCall[];
+  totalCost: number;
+  model?: string;
 }
 
 export interface TerminalGroup {
@@ -71,6 +106,7 @@ export interface AppState {
   tabOverflowMode: TabOverflowMode;
   expandedFolders: Record<string, string[]>;
   todos: TodoItem[];
+  claudeSessions: Record<string, ClaudeSession>;
 }
 
 export type AppAction =
@@ -113,4 +149,19 @@ export type AppAction =
   | { type: "UPDATE_TODO"; todoId: string; updates: Partial<TodoItem> }
   | { type: "REMOVE_TODO"; todoId: string }
   | { type: "REORDER_TODOS"; fromIndex: number; toIndex: number }
+  | { type: "CLAUDE_SESSION_STARTED"; sessionId: string; sdkSessionId: string; model?: string }
+  | { type: "CLAUDE_TEXT_DELTA"; sessionId: string; text: string }
+  | { type: "CLAUDE_TEXT_DONE"; sessionId: string; text: string }
+  | { type: "CLAUDE_THINKING_DELTA"; sessionId: string; text: string }
+  | { type: "CLAUDE_TOOL_USE_START"; sessionId: string; toolCall: ClaudeToolCall }
+  | { type: "CLAUDE_TOOL_APPROVAL_REQUIRED"; sessionId: string; toolCall: ClaudeToolCall }
+  | { type: "CLAUDE_TOOL_APPROVED"; sessionId: string; toolUseId: string }
+  | { type: "CLAUDE_TOOL_DENIED"; sessionId: string; toolUseId: string }
+  | { type: "CLAUDE_TOOL_DONE"; sessionId: string; toolUseId: string; output?: string }
+  | { type: "CLAUDE_TOOL_INPUT_DELTA"; sessionId: string; delta: string }
+  | { type: "CLAUDE_STATUS_CHANGE"; sessionId: string; status: ClaudeSession["status"] }
+  | { type: "CLAUDE_TURN_COMPLETE"; sessionId: string; totalCost: number }
+  | { type: "CLAUDE_ERROR"; sessionId: string; message: string }
+  | { type: "CLAUDE_REMOVE_SESSION"; sessionId: string }
+  | { type: "CLAUDE_USER_MESSAGE"; sessionId: string; text: string }
   | { type: "RESTORE_SESSION"; state: Partial<AppState> };

@@ -93,6 +93,7 @@ export function TerminalTabs() {
 
   const addTerminal = async (mode: "instance" | "worktree") => {
     const termId = crypto.randomUUID();
+    const useClaudeSdk = state.defaultLlm === "claude";
 
     if (mode === "worktree") {
       const branch = window.prompt("Branch name for worktree:");
@@ -109,23 +110,43 @@ export function TerminalTabs() {
           worktreePath,
         });
 
-        const ptyId = await spawnWithLlm(worktreePath, `WT: ${branch}`);
-        registerLlm(ptyId, !!getLlmTitle());
+        if (useClaudeSdk) {
+          const claudeSessionId = crypto.randomUUID();
+          dispatch({
+            type: "ADD_TERMINAL",
+            projectId: activeProject.id,
+            terminal: {
+              id: termId,
+              title: `WT: ${branch}`,
+              ptyId: null,
+              cwd: worktreePath,
+              mode,
+              status: "idle",
+              branch,
+              worktreePath,
+              isLlm: true,
+              claudeSessionId,
+            },
+          });
+        } else {
+          const ptyId = await spawnWithLlm(worktreePath, `WT: ${branch}`);
+          registerLlm(ptyId, !!getLlmTitle());
 
-        dispatch({
-          type: "ADD_TERMINAL",
-          projectId: activeProject.id,
-          terminal: {
-            id: termId,
-            title: `WT: ${branch}`,
-            ptyId,
-            cwd: worktreePath,
-            mode,
-            status: "idle",
-            branch,
-            worktreePath,
-          },
-        });
+          dispatch({
+            type: "ADD_TERMINAL",
+            projectId: activeProject.id,
+            terminal: {
+              id: termId,
+              title: `WT: ${branch}`,
+              ptyId,
+              cwd: worktreePath,
+              mode,
+              status: "idle",
+              branch,
+              worktreePath,
+            },
+          });
+        }
       } catch (e) {
         console.error("Failed to create worktree:", e);
         alert(`Failed to create worktree: ${e}`);
@@ -134,29 +155,47 @@ export function TerminalTabs() {
     }
 
     // Instance mode
-    const llmTitle = getLlmTitle();
-    const title = llmTitle ?? "Terminal";
-    let ptyId: string | null = null;
-    try {
-      ptyId = await spawnWithLlm(activeProject.path, title);
-      registerLlm(ptyId, !!llmTitle);
-    } catch (e) {
-      console.error("Failed to spawn terminal:", e);
-    }
+    if (useClaudeSdk) {
+      const claudeSessionId = crypto.randomUUID();
+      dispatch({
+        type: "ADD_TERMINAL",
+        projectId: activeProject.id,
+        terminal: {
+          id: termId,
+          title: "Claude Code",
+          ptyId: null,
+          cwd: activeProject.path,
+          mode,
+          status: "idle",
+          isLlm: true,
+          claudeSessionId,
+        },
+      });
+    } else {
+      const llmTitle = getLlmTitle();
+      const title = llmTitle ?? "Terminal";
+      let ptyId: string | null = null;
+      try {
+        ptyId = await spawnWithLlm(activeProject.path, title);
+        registerLlm(ptyId, !!llmTitle);
+      } catch (e) {
+        console.error("Failed to spawn terminal:", e);
+      }
 
-    dispatch({
-      type: "ADD_TERMINAL",
-      projectId: activeProject.id,
-      terminal: {
-        id: termId,
-        title,
-        ptyId,
-        cwd: activeProject.path,
-        mode,
-        status: "idle",
-        isLlm: !!llmTitle,
-      },
-    });
+      dispatch({
+        type: "ADD_TERMINAL",
+        projectId: activeProject.id,
+        terminal: {
+          id: termId,
+          title,
+          ptyId,
+          cwd: activeProject.path,
+          mode,
+          status: "idle",
+          isLlm: !!llmTitle,
+        },
+      });
+    }
   };
 
   // Filter terminals by active group
@@ -244,6 +283,9 @@ export function TerminalTabs() {
               className="close-btn"
               onClick={async (e) => {
                 e.stopPropagation();
+                if (term.claudeSessionId) {
+                  invoke("claude_kill", { sessionId: term.claudeSessionId }).catch(() => {});
+                }
                 if (term.ptyId) {
                   invoke("kill_terminal", { id: term.ptyId }).catch(() => {});
                   removePtyBuffer(term.ptyId);

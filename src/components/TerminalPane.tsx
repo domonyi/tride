@@ -5,6 +5,7 @@ import { useAppState, useAppDispatch } from "../state/context";
 import { invoke } from "@tauri-apps/api/core";
 import { getLlmCommand } from "../utils/llmCommand";
 import { removePtyBuffer, registerPtyLlm, notifyPtyFocused } from "../ptyBuffer";
+import { ClaudePane } from "./ClaudePane";
 
 interface TerminalPaneProps {
   terminal: Terminal;
@@ -92,29 +93,38 @@ export function TerminalPane({ terminal }: TerminalPaneProps) {
 
     const llmTitle = state.defaultLlm !== "none" ? (LLM_TITLES[state.defaultLlm] ?? "LLM") : null;
     const title = llmTitle ?? "Terminal";
+    const useClaudeSdk = state.defaultLlm === "claude";
 
     const newId = crypto.randomUUID();
     let ptyId: string | null = null;
-    try {
-      ptyId = await invoke<string>("spawn_terminal", {
-        cwd: terminal.cwd,
-        title,
-        shell: shellMap[state.defaultShell] ?? null,
-      });
+    let claudeSessionId: string | undefined;
 
-      const cmd = getLlmCommand(state.defaultLlm, state.customLlmCommand);
-      if (cmd && ptyId) {
-        setTimeout(() => {
-          const encoder = new TextEncoder();
-          invoke("write_terminal", {
-            id: ptyId!,
-            data: Array.from(encoder.encode(cmd + "\r")),
-          }).catch(() => {});
-        }, 500);
+    if (useClaudeSdk) {
+      // Claude SDK session — no PTY needed
+      claudeSessionId = crypto.randomUUID();
+    } else {
+      // Regular terminal (with optional non-claude LLM)
+      try {
+        ptyId = await invoke<string>("spawn_terminal", {
+          cwd: terminal.cwd,
+          title,
+          shell: shellMap[state.defaultShell] ?? null,
+        });
+
+        const cmd = getLlmCommand(state.defaultLlm, state.customLlmCommand);
+        if (cmd && ptyId) {
+          setTimeout(() => {
+            const encoder = new TextEncoder();
+            invoke("write_terminal", {
+              id: ptyId!,
+              data: Array.from(encoder.encode(cmd + "\r")),
+            }).catch(() => {});
+          }, 500);
+        }
+        if (ptyId) registerPtyLlm(ptyId, !!llmTitle);
+      } catch (e) {
+        console.error("Failed to spawn split terminal:", e);
       }
-      if (ptyId) registerPtyLlm(ptyId, !!llmTitle);
-    } catch (e) {
-      console.error("Failed to spawn split terminal:", e);
     }
 
     dispatch({
@@ -130,12 +140,16 @@ export function TerminalPane({ terminal }: TerminalPaneProps) {
         mode: "instance",
         status: "idle",
         isLlm: !!llmTitle,
+        claudeSessionId,
       },
     });
   };
 
   const handleClose = async () => {
     if (!activeProject) return;
+    if (terminal.claudeSessionId) {
+      invoke("claude_kill", { sessionId: terminal.claudeSessionId }).catch(() => {});
+    }
     if (terminal.ptyId) {
       invoke("kill_terminal", { id: terminal.ptyId }).catch(() => {});
       removePtyBuffer(terminal.ptyId);
@@ -219,7 +233,16 @@ export function TerminalPane({ terminal }: TerminalPaneProps) {
           </button>
         </div>
         <div className="terminal-nosplit-container">
-          <SingleTerminal terminal={t} onFocus={setActive} />
+          {t.claudeSessionId ? (
+            <ClaudePane
+              sessionId={t.claudeSessionId}
+              cwd={t.cwd}
+              isActive={state.activeTerminalId === t.id}
+              onFocus={setActive}
+            />
+          ) : (
+            <SingleTerminal terminal={t} onFocus={setActive} />
+          )}
         </div>
       </div>
     );
