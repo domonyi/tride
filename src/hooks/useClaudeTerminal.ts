@@ -1,9 +1,19 @@
 import { useEffect, useRef, useCallback } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { SerializeAddon } from "@xterm/addon-serialize";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import type { ClaudeToolCall } from "../types";
+import {
+  applyClaudeEvent,
+  drainClaudeBuffer,
+  markClaudeActive,
+  markClaudeInactive,
+  restoreClaudeScreen,
+  saveClaudeScreen,
+  type ClaudeEventCallbacks,
+} from "../claudeBuffer";
 
 interface ClaudeEventPayload {
   data: string;
@@ -93,12 +103,13 @@ export function useClaudeTerminal({
   const containerRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const serializeAddonRef = useRef<SerializeAddon | null>(null);
   const inputBufferRef = useRef("");
   const startedRef = useRef(false);
   const sessionIdRef = useRef(sessionId);
   sessionIdRef.current = sessionId;
 
-  // Callbacks refs to avoid re-subscribing
+  // Stable callback refs
   const onStatusChangeRef = useRef(onStatusChange);
   onStatusChangeRef.current = onStatusChange;
   const onToolApprovalRef = useRef(onToolApproval);
@@ -118,6 +129,18 @@ export function useClaudeTerminal({
   const firstMessageFiredRef = useRef(false);
   const resumeSessionIdRef = useRef(resumeSessionId);
   resumeSessionIdRef.current = resumeSessionId;
+
+  // Build a callbacks object that always reads current refs — used by applyClaudeEvent
+  const buildCallbacks = useCallback((): ClaudeEventCallbacks => ({
+    onStatusChange: (s) => onStatusChangeRef.current?.(s),
+    onToolApproval: (tc) => onToolApprovalRef.current?.(tc),
+    onToolApprovalResolved: (id) => onToolApprovalResolvedRef.current?.(id),
+    onTurnComplete: (cost) => onTurnCompleteRef.current?.(cost),
+    onModelInfo: (m) => onModelInfoRef.current?.(m),
+    onSdkSessionId: (id) => onSdkSessionIdRef.current?.(id),
+    onError: (msg) => onErrorRef.current?.(msg),
+    onStartedRef: startedRef,
+  }), []);
 
   // Initialize xterm
   useEffect(() => {
@@ -155,18 +178,33 @@ export function useClaudeTerminal({
     });
 
     const fitAddon = new FitAddon();
+    const serializeAddon = new SerializeAddon();
     xterm.loadAddon(fitAddon);
+    xterm.loadAddon(serializeAddon);
     xterm.open(containerRef.current);
-
-    requestAnimationFrame(() => {
-      try { fitAddon.fit(); } catch {}
-    });
 
     xtermRef.current = xterm;
     fitAddonRef.current = fitAddon;
+    serializeAddonRef.current = serializeAddon;
 
-    // Load and render history if resuming
-    if (resumeSessionIdRef.current) {
+    // Pre-warm the sidecar process so it's ready when the user sends their first message
+    invoke("claude_warmup").catch(() => {});
+
+    const savedScreen = restoreClaudeScreen(sessionId);
+
+    if (savedScreen) {
+      // Restoring after a project switch — replay saved display then any buffered events
+      xterm.write(savedScreen);
+      startedRef.current = true;
+      firstMessageFiredRef.current = true;
+
+      // Drain events that arrived while the pane was unmounted
+      const buffered = drainClaudeBuffer(sessionId);
+      for (const event of buffered) {
+        applyClaudeEvent(xterm, event, buildCallbacks());
+      }
+    } else if (resumeSessionIdRef.current) {
+      // Resuming a previous session — load history from disk
       loadSessionHistory(resumeSessionIdRef.current, cwd).then((messages) => {
         for (const msg of messages) {
           if (msg.role === "user") {
@@ -180,14 +218,31 @@ export function useClaudeTerminal({
         xterm.write("\x1b[36m❯\x1b[0m ");
       });
     } else {
+      // Fresh session
       xterm.write("\x1b[36m❯\x1b[0m ");
     }
 
+    // Mark active after restoring so the global buffer stops capturing for this session
+    markClaudeActive(sessionId);
+
+    requestAnimationFrame(() => {
+      try { fitAddon.fit(); } catch {}
+    });
+
     return () => {
+      // Serialize the full scrollback before destroying so it can be restored on remount
+      try {
+        const content = serializeAddon.serialize({ scrollback: 50_000 });
+        if (content) saveClaudeScreen(sessionId, content);
+      } catch {}
+
+      markClaudeInactive(sessionId);
       xterm.dispose();
       xtermRef.current = null;
       fitAddonRef.current = null;
+      serializeAddonRef.current = null;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Focus management
@@ -213,7 +268,6 @@ export function useClaudeTerminal({
         if (text) {
           if (!startedRef.current) {
             startedRef.current = true;
-            // Name the chat after the user's first message
             if (!firstMessageFiredRef.current && onFirstMessageRef.current) {
               firstMessageFiredRef.current = true;
               onFirstMessageRef.current(text);
@@ -235,7 +289,6 @@ export function useClaudeTerminal({
             });
           }
         } else {
-          // Empty input — just show prompt again
           xterm.write("\x1b[36m❯\x1b[0m ");
         }
       } else if (data === "\x7f" || data === "\b") {
@@ -260,7 +313,7 @@ export function useClaudeTerminal({
     return () => disposable.dispose();
   }, [cwd]);
 
-  // Listen for Claude events and write to xterm
+  // Listen for Claude events and apply them to xterm
   useEffect(() => {
     let unlisten: UnlistenFn | null = null;
 
@@ -278,86 +331,13 @@ export function useClaudeTerminal({
         const xterm = xtermRef.current;
         if (!xterm) return;
 
-        switch (parsed.type) {
-          case "session_started":
-            if (parsed.model) {
-              onModelInfoRef.current?.(parsed.model);
-            }
-            if (parsed.sdkSessionId) {
-              onSdkSessionIdRef.current?.(parsed.sdkSessionId);
-            }
-            break;
-
-          case "text_delta":
-            // Write streaming text, converting \n to \r\n for xterm
-            xterm.write(parsed.text.replace(/\n/g, "\r\n"));
-            break;
-
-          case "text_done":
-            // Full text block done — handled by text_delta streaming
-            break;
-
-          case "thinking_delta":
-            // Show thinking in dim
-            xterm.write(`\x1b[2m${parsed.text.replace(/\n/g, "\r\n")}\x1b[0m`);
-            break;
-
-          case "tool_use_start":
-            xterm.write(`\r\n\x1b[33m⚡ ${parsed.toolName}\x1b[0m`);
-            if (parsed.input) {
-              const preview = typeof parsed.input === "string"
-                ? parsed.input
-                : JSON.stringify(parsed.input);
-              const short = preview.length > 120 ? preview.slice(0, 120) + "..." : preview;
-              xterm.write(`\x1b[2m ${short}\x1b[0m`);
-            }
-            xterm.write("\r\n");
-            break;
-
-          case "tool_approval_required":
-            onToolApprovalRef.current?.({
-              toolUseId: parsed.toolUseId,
-              toolName: parsed.toolName,
-              input: parsed.input,
-              inputDelta: "",
-              status: "pending_approval",
-              title: parsed.title,
-              description: parsed.description,
-            });
-            xterm.write(`\x1b[36m⏳ ${parsed.toolName}\x1b[0m — waiting for approval\r\n`);
-            break;
-
-          case "tool_use_done":
-            onToolApprovalResolvedRef.current?.(parsed.toolUseId);
-            xterm.write(`\x1b[32m✓ ${parsed.toolName}\x1b[0m\r\n`);
-            break;
-
-          case "status_change":
-            onStatusChangeRef.current?.(parsed.status);
-            break;
-
-          case "turn_complete":
-            xterm.write("\r\n\x1b[36m❯\x1b[0m ");
-            onTurnCompleteRef.current?.(parsed.totalCost);
-            break;
-
-          case "error":
-            xterm.write(`\r\n\x1b[31m${parsed.message}\x1b[0m\r\n`);
-            xterm.write("\x1b[36m❯\x1b[0m ");
-            onErrorRef.current?.(parsed.message);
-            break;
-
-          case "session_ended":
-            xterm.write("\r\n\x1b[2m[Session ended]\x1b[0m\r\n");
-            startedRef.current = false;
-            xterm.write("\x1b[36m❯\x1b[0m ");
-            break;
-        }
+        applyClaudeEvent(xterm, parsed, buildCallbacks());
       });
     };
 
     setup();
     return () => { unlisten?.(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Resize handling

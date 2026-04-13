@@ -11,6 +11,7 @@ import { ProjectTabs } from "./components/ProjectTabs";
 import { saveSession, loadSession, respawnTerminals } from "./state/session";
 import { saveLayoutState } from "./state/localStorage";
 import { registerStatusSubscriber } from "./ptyBuffer";
+import { useGlobalClaudeListener } from "./hooks/useGlobalClaudeListener";
 import type { SidebarMode } from "./types";
 import "./styles.css";
 
@@ -19,6 +20,9 @@ function AppContent() {
   const dispatch = useAppDispatch();
   const loadedRef = useRef(false);
   const restoredRef = useRef(false);
+
+  // Global Claude event listener — captures events even when panes are unmounted
+  useGlobalClaudeListener(dispatch);
   const [searchOpen, setSearchOpen] = useState(false);
   const projectsRef = useRef(state.projects);
   projectsRef.current = state.projects;
@@ -97,6 +101,23 @@ function AppContent() {
       saveSession(state);
     }, 1000);
   }, [state]);
+
+  // Track Ctrl held state for showing pane badges
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      document.body.classList.toggle("ctrl-held", e.ctrlKey);
+    };
+    const onBlur = () => document.body.classList.remove("ctrl-held");
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKey);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKey);
+      window.removeEventListener("blur", onBlur);
+      document.body.classList.remove("ctrl-held");
+    };
+  }, []);
 
   // Global keyboard shortcuts
   useEffect(() => {

@@ -5,6 +5,7 @@ import { useAppState, useAppDispatch } from "../state/context";
 import { invoke } from "@tauri-apps/api/core";
 import { getLlmCommand } from "../utils/llmCommand";
 import { removePtyBuffer, registerPtyLlm, notifyPtyFocused } from "../ptyBuffer";
+import { removeClaudeBuffer } from "../claudeBuffer";
 import { ClaudePane } from "./ClaudePane";
 
 interface TerminalPaneProps {
@@ -149,6 +150,7 @@ export function TerminalPane({ terminal }: TerminalPaneProps) {
     if (!activeProject) return;
     if (terminal.claudeSessionId) {
       invoke("claude_kill", { sessionId: terminal.claudeSessionId }).catch(() => {});
+      removeClaudeBuffer(terminal.claudeSessionId);
     }
     if (terminal.ptyId) {
       invoke("kill_terminal", { id: terminal.ptyId }).catch(() => {});

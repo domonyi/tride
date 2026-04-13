@@ -601,12 +601,28 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "CLAUDE_TOOL_USE_START": {
       const cs = state.claudeSessions[action.sessionId];
       if (!cs) return state;
-      // Attach to the last assistant message
       const msgs = [...cs.messages];
-      const lastAssistant = [...msgs].reverse().find((m) => m.role === "assistant");
-      if (lastAssistant) {
-        const idx = msgs.indexOf(lastAssistant);
-        msgs[idx] = { ...lastAssistant, toolCalls: [...lastAssistant.toolCalls, action.toolCall] };
+      let lastAssistantIdx = -1;
+      let lastUserIdx = -1;
+      for (let j = msgs.length - 1; j >= 0; j--) {
+        if (lastAssistantIdx === -1 && msgs[j].role === "assistant") lastAssistantIdx = j;
+        if (lastUserIdx === -1 && msgs[j].role === "user") lastUserIdx = j;
+        if (lastAssistantIdx !== -1 && lastUserIdx !== -1) break;
+      }
+      // If there's a user message after the last assistant message (or no assistant at all),
+      // create a new assistant message for this tool call instead of appending to the old one.
+      if (lastAssistantIdx === -1 || lastUserIdx > lastAssistantIdx) {
+        const newMsg: ClaudeMessage = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: "",
+          toolCalls: [action.toolCall],
+          timestamp: Date.now(),
+        };
+        msgs.push(newMsg);
+      } else {
+        const lastAssistant = msgs[lastAssistantIdx];
+        msgs[lastAssistantIdx] = { ...lastAssistant, toolCalls: [...lastAssistant.toolCalls, action.toolCall] };
       }
       return {
         ...state,
@@ -643,12 +659,25 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "CLAUDE_TOOL_APPROVED": {
       const cs = state.claudeSessions[action.sessionId];
       if (!cs) return state;
+      // Update tool status in messages to "running" so the spinner shows correctly
+      const msgs = cs.messages.map((m) => {
+        if (!m.toolCalls.some((tc) => tc.toolUseId === action.toolUseId)) return m;
+        return {
+          ...m,
+          toolCalls: m.toolCalls.map((tc) =>
+            tc.toolUseId === action.toolUseId
+              ? { ...tc, status: "running" as const }
+              : tc
+          ),
+        };
+      });
       return {
         ...state,
         claudeSessions: {
           ...state.claudeSessions,
           [action.sessionId]: {
             ...cs,
+            messages: msgs,
             pendingApprovals: cs.pendingApprovals.filter((t) => t.toolUseId !== action.toolUseId),
           },
         },
@@ -658,12 +687,25 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "CLAUDE_TOOL_DENIED": {
       const cs = state.claudeSessions[action.sessionId];
       if (!cs) return state;
+      // Update tool status in messages to "denied"
+      const deniedMsgs = cs.messages.map((m) => {
+        if (!m.toolCalls.some((tc) => tc.toolUseId === action.toolUseId)) return m;
+        return {
+          ...m,
+          toolCalls: m.toolCalls.map((tc) =>
+            tc.toolUseId === action.toolUseId
+              ? { ...tc, status: "denied" as const }
+              : tc
+          ),
+        };
+      });
       return {
         ...state,
         claudeSessions: {
           ...state.claudeSessions,
           [action.sessionId]: {
             ...cs,
+            messages: deniedMsgs,
             pendingApprovals: cs.pendingApprovals.filter((t) => t.toolUseId !== action.toolUseId),
           },
         },
@@ -674,14 +716,17 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const cs = state.claudeSessions[action.sessionId];
       if (!cs) return state;
       // Update tool call status in messages
-      const msgs = cs.messages.map((m) => ({
-        ...m,
-        toolCalls: m.toolCalls.map((tc) =>
-          tc.toolUseId === action.toolUseId
-            ? { ...tc, status: "done" as const, output: action.output }
-            : tc
-        ),
-      }));
+      const msgs = cs.messages.map((m) => {
+        if (!m.toolCalls.some((tc) => tc.toolUseId === action.toolUseId)) return m;
+        return {
+          ...m,
+          toolCalls: m.toolCalls.map((tc) =>
+            tc.toolUseId === action.toolUseId
+              ? { ...tc, status: "done" as const, output: action.output }
+              : tc
+          ),
+        };
+      });
       return {
         ...state,
         claudeSessions: {
@@ -731,6 +776,16 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           timestamp: Date.now(),
         }];
       }
+      // Safety net: mark any tools still "running" or "approved" as "done"
+      // so the spinner doesn't get stuck if tool_use_done was never received.
+      msgs = msgs.map((m) => ({
+        ...m,
+        toolCalls: m.toolCalls.map((tc) =>
+          tc.status === "running" || tc.status === "approved"
+            ? { ...tc, status: "done" as const }
+            : tc
+        ),
+      }));
       const projects = state.projects.map((p) => ({
         ...p,
         terminals: p.terminals.map((t) =>
@@ -749,6 +804,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
             streamingThinking: "",
             status: "idle",
             totalCost: action.totalCost ?? cs.totalCost,
+            inputTokens: action.inputTokens ?? cs.inputTokens,
+            outputTokens: action.outputTokens ?? cs.outputTokens,
           },
         },
       };
@@ -890,6 +947,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         origin: "local",
         sessionId: `pane-${pane.id}`,
       };
+      // Mark this project as active in the pane so switching back shows the chat
+      const sdkSessionIds = { ...(pane.sdkSessionIds ?? {}) };
+      if (action.projectId) {
+        sdkSessionIds[action.projectId] = sdkSessionIds[action.projectId] ?? "";
+      }
       return {
         ...state,
         panes: {
@@ -898,6 +960,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
             label: "New Chat",
             chatHistoryId: historyId,
             worktreeSetup: false,
+            sdkSessionIds,
           }),
           chatHistory: [entry, ...state.panes.chatHistory],
         },
@@ -1019,6 +1082,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const pane = state.panes.panes[action.paneId];
       const historyEntry = state.panes.chatHistory.find((h) => h.id === action.historyId);
       if (!pane || !historyEntry) return state;
+      // Populate sdkSessionIds for the active project so the hasSession check works
+      const projectId = state.activeProjectId ?? "default";
+      const sdkSessionIds = { ...(pane.sdkSessionIds ?? {}) };
+      if (historyEntry.sdkSessionId) {
+        sdkSessionIds[projectId] = historyEntry.sdkSessionId;
+      }
       return {
         ...state,
         panes: updateLlmPane(state.panes, action.paneId, {
@@ -1027,6 +1096,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           branch: historyEntry.branch,
           chatHistoryId: historyEntry.id,
           sdkSessionId: historyEntry.sdkSessionId,
+          sdkSessionIds,
           worktreeSetup: false,
         }),
       };
@@ -1042,14 +1112,22 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       };
 
     case "PANES_SET_SDK_SESSION_ID": {
-      const updatedPs = updateLlmPane(state.panes, action.paneId, { sdkSessionId: action.sdkSessionId });
+      const pane = state.panes.panes[action.paneId];
+      const perProjectIds = { ...(pane?.sdkSessionIds ?? {}) };
+      if (action.projectId) {
+        perProjectIds[action.projectId] = action.sdkSessionId;
+      }
+      const updatedPs = updateLlmPane(state.panes, action.paneId, {
+        sdkSessionId: action.sdkSessionId,
+        sdkSessionIds: perProjectIds,
+      });
       // Also update the matching history entry
       const p = updatedPs.panes[action.paneId];
       if (p?.chatHistoryId) {
         const hIdx = updatedPs.chatHistory.findIndex((h) => h.id === p.chatHistoryId);
         if (hIdx >= 0) {
           const updatedHistory = [...updatedPs.chatHistory];
-          updatedHistory[hIdx] = { ...updatedHistory[hIdx], sdkSessionId: action.sdkSessionId };
+          updatedHistory[hIdx] = { ...updatedHistory[hIdx], sdkSessionId: action.sdkSessionId, timestamp: Date.now() };
           return { ...state, panes: { ...updatedPs, chatHistory: updatedHistory } };
         }
       }
@@ -1064,7 +1142,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         const hIdx = updatedPs.chatHistory.findIndex((h) => h.id === p.chatHistoryId);
         if (hIdx >= 0) {
           const updatedHistory = [...updatedPs.chatHistory];
-          updatedHistory[hIdx] = { ...updatedHistory[hIdx], name: action.label };
+          updatedHistory[hIdx] = { ...updatedHistory[hIdx], name: action.label, timestamp: Date.now() };
           return { ...state, panes: { ...updatedPs, chatHistory: updatedHistory } };
         }
       }

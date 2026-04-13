@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SerializeAddon } from "@xterm/addon-serialize";
+import { WebglAddon } from "@xterm/addon-webgl";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
@@ -31,6 +32,7 @@ export function useTerminal({ ptyId, isActive, onLinkClick, onTitleChange, onFoc
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const serializeAddonRef = useRef<SerializeAddon | null>(null);
+  const webglAddonRef = useRef<WebglAddon | null>(null);
   const ptyIdRef = useRef(ptyId);
   ptyIdRef.current = ptyId;
   const onLinkClickRef = useRef(onLinkClick);
@@ -81,6 +83,22 @@ export function useTerminal({ ptyId, isActive, onLinkClick, onTitleChange, onFoc
     xterm.loadAddon(fitAddon);
     xterm.loadAddon(serializeAddon);
     xterm.open(containerRef.current);
+
+    // GPU-accelerated rendering — falls back to DOM renderer if WebGL is unavailable
+    const webglAddon = new WebglAddon();
+    webglAddon.onContextLoss(() => {
+      // WebGL context was lost (too many contexts, driver reset, etc.) — dispose cleanly
+      // and let xterm fall back to its built-in DOM renderer
+      webglAddon.dispose();
+      webglAddonRef.current = null;
+    });
+    try {
+      xterm.loadAddon(webglAddon);
+      webglAddonRef.current = webglAddon;
+    } catch {
+      // WebGL not supported in this environment
+      webglAddon.dispose();
+    }
 
     // Hide xterm's cursor — Claude Code draws its own
     xterm.write("\x1b[?25l");
@@ -246,6 +264,8 @@ export function useTerminal({ ptyId, isActive, onLinkClick, onTitleChange, onFoc
       }
       xterm.textarea?.removeEventListener("focus", focusHandler);
       titleDisposable.dispose();
+      webglAddonRef.current?.dispose();
+      webglAddonRef.current = null;
       xterm.dispose();
       xtermRef.current = null;
       fitAddonRef.current = null;

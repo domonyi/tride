@@ -287,13 +287,15 @@ export function LlmPaneStartScreen({ pane, accentColor }: Props) {
     return () => document.removeEventListener("mousedown", handler);
   }, [dropdownOpen]);
 
+  const projectId = state.activeProjectId ?? undefined;
+
   const startChat = useCallback((type: ChatType) => {
     if (type === "local") {
-      dispatch({ type: "PANES_START_LOCAL", paneId: pane.id });
+      dispatch({ type: "PANES_START_LOCAL", paneId: pane.id, projectId });
     } else {
       dispatch({ type: "PANES_START_WORKTREE_SETUP", paneId: pane.id });
     }
-  }, [dispatch, pane.id]);
+  }, [dispatch, pane.id, projectId]);
 
   const handlePrimaryClick = useCallback(() => {
     startChat(defaultType);

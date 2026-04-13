@@ -57,6 +57,8 @@ export interface ClaudeSession {
   pendingApprovals: ClaudeToolCall[];
   totalCost: number;
   model?: string;
+  inputTokens?: number;
+  outputTokens?: number;
 }
 
 export interface TerminalGroup {
@@ -113,7 +115,8 @@ export interface LlmPane {
   worktreePath?: string;
   chatHistoryId?: string;
   worktreeSetup?: boolean;
-  sdkSessionId?: string;  // Claude SDK session ID for resume
+  sdkSessionId?: string;  // Claude SDK session ID for resume (legacy / active)
+  sdkSessionIds?: Record<string, string>;  // per-project SDK session IDs (projectId → sdkSessionId)
 }
 
 export interface PanesState {
@@ -218,7 +221,7 @@ export type AppAction =
   | { type: "CLAUDE_TOOL_DONE"; sessionId: string; toolUseId: string; output?: string }
   | { type: "CLAUDE_TOOL_INPUT_DELTA"; sessionId: string; delta: string }
   | { type: "CLAUDE_STATUS_CHANGE"; sessionId: string; status: ClaudeSession["status"] }
-  | { type: "CLAUDE_TURN_COMPLETE"; sessionId: string; totalCost: number }
+  | { type: "CLAUDE_TURN_COMPLETE"; sessionId: string; totalCost: number; inputTokens?: number; outputTokens?: number }
   | { type: "CLAUDE_ERROR"; sessionId: string; message: string }
   | { type: "CLAUDE_REMOVE_SESSION"; sessionId: string }
   | { type: "CLAUDE_USER_MESSAGE"; sessionId: string; text: string }
@@ -236,11 +239,11 @@ export type AppAction =
   | { type: "PANES_SELECT_ALL_TARGETS" }
   | { type: "PANES_CLEAR_PANE"; paneId: string }
   | { type: "PANES_CLEAR_ALL" }
-  | { type: "PANES_START_LOCAL"; paneId: string }
+  | { type: "PANES_START_LOCAL"; paneId: string; projectId?: string }
   | { type: "PANES_START_WORKTREE_SETUP"; paneId: string }
   | { type: "PANES_CANCEL_WORKTREE_SETUP"; paneId: string }
   | { type: "PANES_CREATE_WORKTREE"; paneId: string; branch: string; baseBranch: string }
   | { type: "PANES_RESUME_CHAT"; paneId: string; historyId: string }
   | { type: "PANES_DELETE_HISTORY"; historyId: string }
-  | { type: "PANES_SET_SDK_SESSION_ID"; paneId: string; sdkSessionId: string }
+  | { type: "PANES_SET_SDK_SESSION_ID"; paneId: string; sdkSessionId: string; projectId?: string }
   | { type: "PANES_UPDATE_LABEL"; paneId: string; label: string };

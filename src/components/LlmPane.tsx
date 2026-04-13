@@ -1,10 +1,8 @@
-import { useState, useCallback } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useAppState, useAppDispatch } from "../state/context";
-import { useClaudeTerminal } from "../hooks/useClaudeTerminal";
 import { PANE_COLORS } from "../utils/paneUtils";
 import { LlmPaneStartScreen } from "./LlmPaneStartScreen";
-import { invoke } from "@tauri-apps/api/core";
-import type { ClaudeToolCall } from "../types";
+import { ChatView } from "./chat/ChatView";
 import { GitBranch, X } from "lucide-react";
 
 interface Props {
@@ -20,7 +18,11 @@ export function LlmPane({ paneId, gridArea }: Props) {
   if (!pane) return null;
 
   const accentColor = PANE_COLORS[pane.index % PANE_COLORS.length];
-  const hasSession = pane.origin !== "empty";
+  // Show ChatView if: pane is active AND this project has a session (or no project has used this pane yet)
+  const projectId = state.activeProjectId ?? "default";
+  const hasAnySession = !!(pane.sdkSessionIds && Object.keys(pane.sdkSessionIds).length > 0);
+  const hasProjectSession = (pane.sdkSessionIds != null && projectId in pane.sdkSessionIds) || !!state.claudeSessions[`pane-${paneId}-proj-${projectId}`];
+  const hasSession = pane.origin !== "empty" && (hasProjectSession || !hasAnySession);
 
   return (
     <div
@@ -60,9 +62,9 @@ export function LlmPane({ paneId, gridArea }: Props) {
         )}
       </div>
 
-      {/* Body: start screen or terminal */}
+      {/* Body: start screen or chat */}
       {hasSession ? (
-        <PaneTerminal paneId={paneId} pane={pane} accentColor={accentColor} />
+        <PaneChat paneId={paneId} pane={pane} accentColor={accentColor} />
       ) : (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "auto" }}>
           <LlmPaneStartScreen pane={pane} accentColor={accentColor} />
@@ -72,96 +74,43 @@ export function LlmPane({ paneId, gridArea }: Props) {
   );
 }
 
-/** Wraps the Claude SDK terminal for a pane that has an active session */
-function PaneTerminal({ paneId, pane, accentColor }: { paneId: string; pane: any; accentColor: string }) {
+/** Chat view for a pane that has an active session */
+function PaneChat({ paneId, pane }: { paneId: string; pane: any; accentColor: string }) {
   const dispatch = useAppDispatch();
-  const [pendingApprovals, setPendingApprovals] = useState<ClaudeToolCall[]>([]);
-  const [model, setModel] = useState("");
-  const [totalCost, setTotalCost] = useState(0);
+  const state = useAppState();
 
-  const sessionId = `pane-${paneId}`;
+  // Increment focusTrigger each time this pane becomes the active pane (Ctrl+N)
+  const [focusTrigger, setFocusTrigger] = useState(0);
+  const isActive = state.panes.activePaneId === paneId;
+  useEffect(() => {
+    if (isActive) setFocusTrigger((n) => n + 1);
+  }, [isActive]);
 
-  const state2 = useAppState();
-  const activeProject = state2.projects.find((p) => p.id === state2.activeProjectId);
+  const activeProject = state.projects.find((p) => p.id === state.activeProjectId);
+  const projectId = state.activeProjectId ?? "default";
+  const sessionId = `pane-${paneId}-proj-${projectId}`;
   const cwd = pane.worktreePath || activeProject?.path || ".";
 
-  const onStatusChange = useCallback(() => {}, []);
-
-  const onToolApproval = useCallback((toolCall: ClaudeToolCall) => {
-    setPendingApprovals((prev) => [...prev, toolCall]);
-  }, []);
-
-  const onToolApprovalResolved = useCallback((toolUseId: string) => {
-    setPendingApprovals((prev) => prev.filter((t) => t.toolUseId !== toolUseId));
-  }, []);
-
-  const onTurnComplete = useCallback((cost: number) => {
-    if (cost) setTotalCost((prev) => prev + cost);
-  }, []);
-
-  const onModelInfo = useCallback((m: string) => {
-    setModel(m);
-  }, []);
+  const resumeSdkId = pane.sdkSessionIds?.[projectId] ?? pane.sdkSessionId;
 
   const onSdkSessionId = useCallback((sdkId: string) => {
-    dispatch({ type: "PANES_SET_SDK_SESSION_ID", paneId, sdkSessionId: sdkId });
-  }, [dispatch, paneId]);
+    dispatch({ type: "PANES_SET_SDK_SESSION_ID", paneId, sdkSessionId: sdkId, projectId });
+  }, [dispatch, paneId, projectId]);
 
   const onFirstMessage = useCallback((text: string) => {
-    const label = text.length > 40 ? text.slice(0, 40) + "…" : text;
+    const label = text.length > 40 ? text.slice(0, 40) + "..." : text;
     dispatch({ type: "PANES_UPDATE_LABEL", paneId, label });
   }, [dispatch, paneId]);
 
-  const handleApprove = useCallback(async (toolUseId: string) => {
-    setPendingApprovals((prev) => prev.filter((t) => t.toolUseId !== toolUseId));
-    await invoke("claude_approve", { sessionId, toolUseId });
-  }, [sessionId]);
-
-  const handleDeny = useCallback(async (toolUseId: string) => {
-    setPendingApprovals((prev) => prev.filter((t) => t.toolUseId !== toolUseId));
-    await invoke("claude_deny", { sessionId, toolUseId });
-  }, [sessionId]);
-
-  const { containerRef } = useClaudeTerminal({
-    sessionId,
-    cwd,
-    isActive: true,
-    resumeSessionId: pane.sdkSessionId,
-    onStatusChange,
-    onToolApproval,
-    onToolApprovalResolved,
-    onSdkSessionId,
-    onTurnComplete,
-    onModelInfo,
-    onFirstMessage,
-  });
-
   return (
-    <div className="claude-pane" style={{ flex: 1, minHeight: 0 }}>
-      {(model || totalCost > 0) && (
-        <div className="claude-pane-bar">
-          {model && <span className="claude-pane-model">{model}</span>}
-          {totalCost > 0 && <span className="claude-pane-cost">${totalCost.toFixed(4)}</span>}
-        </div>
-      )}
-
-      <div className="claude-terminal-body" ref={containerRef} />
-
-      {pendingApprovals.length > 0 && (
-        <div className="claude-approval-bar">
-          {pendingApprovals.map((tc) => (
-            <div key={tc.toolUseId} className="claude-approval-item">
-              <span className="claude-approval-name">{tc.toolName}</span>
-              <button className="claude-approve-btn" onClick={() => handleApprove(tc.toolUseId)}>
-                Allow
-              </button>
-              <button className="claude-deny-btn" onClick={() => handleDeny(tc.toolUseId)}>
-                Deny
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+    <ChatView
+      sessionId={sessionId}
+      cwd={cwd}
+      paneId={paneId}
+      resumeSessionId={resumeSdkId}
+      onSdkSessionId={onSdkSessionId}
+      onFirstMessage={onFirstMessage}
+      focusTrigger={focusTrigger}
+    />
   );
 }

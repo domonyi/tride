@@ -96,6 +96,8 @@ export function useClaudeSession(sessionId: string | undefined) {
             type: "CLAUDE_TURN_COMPLETE",
             sessionId,
             totalCost: parsed.totalCost,
+            inputTokens: parsed.inputTokens,
+            outputTokens: parsed.outputTokens,
           });
           break;
 

@@ -382,23 +382,43 @@ fn get_app_dir() -> Result<String, String> {
 // ── Claude Commands ─────────────────────────────────────────────────────────
 
 #[tauri::command]
-fn claude_start(
+async fn claude_warmup(
     app: AppHandle,
-    state: State<AppState>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let manager = state.claude_manager.clone();
+    let app_clone = app.clone();
+    tokio::task::spawn_blocking(move || {
+        manager.ensure_sidecar(&app_clone)
+    })
+    .await
+    .map_err(|e| format!("Warmup task failed: {}", e))?
+}
+
+#[tauri::command]
+async fn claude_start(
+    app: AppHandle,
+    state: State<'_, AppState>,
     session_id: String,
     cwd: String,
     prompt: String,
     model: Option<String>,
     resume_session_id: Option<String>,
 ) -> Result<(), String> {
-    state.claude_manager.start(
-        &app,
-        &session_id,
-        &cwd,
-        &prompt,
-        model.as_deref(),
-        resume_session_id.as_deref(),
-    )
+    let manager = state.claude_manager.clone();
+    let app_clone = app.clone();
+    tokio::task::spawn_blocking(move || {
+        manager.start(
+            &app_clone,
+            &session_id,
+            &cwd,
+            &prompt,
+            model.as_deref(),
+            resume_session_id.as_deref(),
+        )
+    })
+    .await
+    .map_err(|e| format!("Start task failed: {}", e))?
 }
 
 #[tauri::command]
@@ -505,6 +525,7 @@ pub fn run() {
             lsp_stop,
             get_app_dir,
             save_clipboard_image,
+            claude_warmup,
             claude_start,
             claude_send,
             claude_approve,

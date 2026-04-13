@@ -76,12 +76,28 @@ async function runTurn(sessionId: string, prompt: string) {
   session.running = true;
   session.abortController = new AbortController();
 
+  // Track which tool_use IDs have already been marked done (via tool_use_summary)
+  // so we don't emit duplicate tool_use_done events from tool_result.
+  const completedToolIds = new Set<string>();
+
   const opts: Record<string, any> = {
     cwd: session.cwd,
     model: session.model,
     abortController: session.abortController,
     includePartialMessages: true,
     permissionMode: "default",
+    systemPrompt: {
+      type: "preset",
+      preset: "claude_code",
+      append: [
+        "IMPORTANT: At the start of every new conversation, before doing anything else,",
+        "you MUST explore the current working directory to understand the codebase.",
+        "Use tools like Glob, Grep, Read, and Bash (ls) to build a mental map of the",
+        "project structure, key files, languages, frameworks, and conventions.",
+        "This ensures you never miss important context that could affect your work.",
+        "Only after this initial exploration should you proceed with the user's request.",
+      ].join(" "),
+    },
     canUseTool: async (toolName: string, input: any, options: any) => {
       const toolUseId = options.toolUseID;
       emit({
@@ -153,6 +169,8 @@ async function runTurn(sessionId: string, prompt: string) {
               totalCost: (message as any).total_cost_usd,
               durationMs: (message as any).duration_ms,
               numTurns: (message as any).num_turns,
+              inputTokens: (message as any).total_input_tokens ?? (message as any).usage?.input_tokens,
+              outputTokens: (message as any).total_output_tokens ?? (message as any).usage?.output_tokens,
             });
           } else {
             emit({
@@ -192,13 +210,32 @@ async function runTurn(sessionId: string, prompt: string) {
         }
 
         case "tool_use_summary": {
-          emit({
-            type: "tool_use_done",
-            sessionId,
-            toolUseId: (message as any).tool_use_id,
-            toolName: (message as any).tool_name,
-            output: (message as any).output,
-          });
+          const ids: string[] = (message as any).preceding_tool_use_ids ?? [];
+          const summary: string = (message as any).summary ?? "";
+          for (const id of ids) {
+            completedToolIds.add(id);
+            emit({
+              type: "tool_use_done",
+              sessionId,
+              toolUseId: id,
+              output: summary,
+            });
+          }
+          break;
+        }
+
+        case "tool_result": {
+          const toolUseId: string = (message as any).tool_use_id ?? "";
+          if (toolUseId && !completedToolIds.has(toolUseId)) {
+            completedToolIds.add(toolUseId);
+            const output: string = (message as any).output ?? (message as any).content ?? "";
+            emit({
+              type: "tool_use_done",
+              sessionId,
+              toolUseId,
+              output: typeof output === "string" ? output : JSON.stringify(output),
+            });
+          }
           break;
         }
       }

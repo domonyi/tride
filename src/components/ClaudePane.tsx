@@ -3,6 +3,8 @@ import { useClaudeTerminal } from "../hooks/useClaudeTerminal";
 import { useAppDispatch } from "../state/context";
 import { invoke } from "@tauri-apps/api/core";
 import type { ClaudeToolCall } from "../types";
+import { getToolLucideIcon } from "../utils/toolIcons";
+import { formatModelName } from "../utils/modelUtils";
 
 interface ClaudePaneProps {
   sessionId: string;
@@ -66,12 +68,9 @@ export function ClaudePane({ sessionId, cwd, isActive, onFocus }: ClaudePaneProp
   return (
     <div className="claude-pane" onClick={onFocus}>
       {/* Info bar */}
-      {(model || totalCost > 0) && (
+      {model && (
         <div className="claude-pane-bar">
-          {model && <span className="claude-pane-model">{model}</span>}
-          {totalCost > 0 && (
-            <span className="claude-pane-cost">${totalCost.toFixed(4)}</span>
-          )}
+          <span className="claude-pane-model">{formatModelName(model)}</span>
         </div>
       )}
 
@@ -83,7 +82,7 @@ export function ClaudePane({ sessionId, cwd, isActive, onFocus }: ClaudePaneProp
         <div className="claude-approval-bar">
           {pendingApprovals.map((tc) => (
             <div key={tc.toolUseId} className="claude-approval-item">
-              <span className="claude-approval-name">{tc.toolName}</span>
+              <span className="claude-approval-name">{getToolLucideIcon(tc.toolName)} {tc.toolName}</span>
               <button
                 className="claude-approve-btn"
                 onClick={() => handleApprove(tc.toolUseId)}

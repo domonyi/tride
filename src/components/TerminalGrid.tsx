@@ -16,40 +16,32 @@ export function TerminalGrid() {
 
   const { rows, cols } = state.gridLayout;
 
-  // Render ALL projects' terminals to preserve xterm scrollback history.
-  // Non-active projects are hidden with CSS but stay mounted.
+  // Only mount terminals for the active project.
+  // Background projects are fully unmounted — their PTY processes keep running
+  // on the Rust side and output is captured by ptyBuffer / claudeBuffer.
+  // Serialized xterm screens are restored instantly on project switch.
+  const visibleTerminals = activeProject.terminals.filter((t) => {
+    // Child split terminals are rendered inside their parent's split container
+    if (t.splitParentId) return false;
+    if (!state.activeGroupId) return true;
+    const activeGroup = (activeProject.terminalGroups ?? []).find(
+      (g) => g.id === state.activeGroupId
+    );
+    if (!activeGroup) return true;
+    return activeGroup.terminalIds.includes(t.id);
+  });
+
   return (
-    <>
-      {state.projects.map((project) => {
-        const isActive = project.id === state.activeProjectId;
-        if (project.terminals.length === 0) return null;
-        return (
-          <div
-            key={project.id}
-            className="terminal-grid"
-            style={{
-              gridTemplateRows: `repeat(${rows}, 1fr)`,
-              gridTemplateColumns: `repeat(${cols}, 1fr)`,
-              display: isActive ? "grid" : "none",
-            }}
-          >
-            {project.terminals
-              .filter((t) => {
-                // Hide child terminals – they are rendered inside their parent's split container
-                if (t.splitParentId) return false;
-                if (!isActive || !state.activeGroupId) return true;
-                const activeGroup = (project.terminalGroups ?? []).find(
-                  (g) => g.id === state.activeGroupId
-                );
-                if (!activeGroup) return true;
-                return activeGroup.terminalIds.includes(t.id);
-              })
-              .map((terminal) => (
-                <TerminalPane key={terminal.id} terminal={terminal} />
-              ))}
-          </div>
-        );
-      })}
-    </>
+    <div
+      className="terminal-grid"
+      style={{
+        gridTemplateRows: `repeat(${rows}, 1fr)`,
+        gridTemplateColumns: `repeat(${cols}, 1fr)`,
+      }}
+    >
+      {visibleTerminals.map((terminal) => (
+        <TerminalPane key={terminal.id} terminal={terminal} />
+      ))}
+    </div>
   );
 }

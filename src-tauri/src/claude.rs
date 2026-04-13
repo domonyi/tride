@@ -38,7 +38,7 @@ impl ClaudeManager {
     }
 
     /// Ensure the sidecar process is running. Spawns it lazily on first use.
-    fn ensure_sidecar(&self, app_handle: &AppHandle) -> Result<(), String> {
+    pub fn ensure_sidecar(&self, app_handle: &AppHandle) -> Result<(), String> {
         let mut guard = self.sidecar.lock();
         if guard.as_ref().map_or(false, |s| s.alive.load(Ordering::Relaxed)) {
             return Ok(()); // Already running
@@ -154,7 +154,11 @@ impl ClaudeManager {
         let which_cmd = "which";
 
         // Try PATH first
-        if let Ok(output) = Command::new(which_cmd).arg("bun").output() {
+        let mut which_bun = Command::new(which_cmd);
+        which_bun.arg("bun");
+        #[cfg(target_os = "windows")]
+        which_bun.creation_flags(CREATE_NO_WINDOW);
+        if let Ok(output) = which_bun.output() {
             if output.status.success() {
                 let paths = String::from_utf8_lossy(&output.stdout);
                 if let Some(first) = paths.lines().next() {
@@ -193,7 +197,11 @@ impl ClaudeManager {
         }
 
         // Fallback: try node
-        if let Ok(output) = Command::new(which_cmd).arg("node").output() {
+        let mut which_node = Command::new(which_cmd);
+        which_node.arg("node");
+        #[cfg(target_os = "windows")]
+        which_node.creation_flags(CREATE_NO_WINDOW);
+        if let Ok(output) = which_node.output() {
             if output.status.success() {
                 let paths = String::from_utf8_lossy(&output.stdout);
                 if let Some(first) = paths.lines().next() {
