@@ -149,21 +149,6 @@ export function ChatView({
 
   return (
     <div className="chat-view">
-      {/* Status bar */}
-      {session?.model && (
-        <div className="chat-status-bar">
-          <span className="chat-model">{formatModelName(session.model)}</span>
-          {session.inputTokens != null && (
-            <span className="chat-context-usage">
-              {formatTokens(session.inputTokens + (session.outputTokens ?? 0))}
-              {" / "}
-              {formatTokens(getContextLimit(session.model))}
-            </span>
-          )}
-          {isRunning && <span className="chat-status-dot" />}
-        </div>
-      )}
-
       {/* Messages */}
       <div className="chat-messages" ref={scrollRef}>
         {messages.length === 0 && !isStreaming && (

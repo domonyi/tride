@@ -1,6 +1,7 @@
 import { useCallback, useState, useEffect } from "react";
 import { useAppState, useAppDispatch } from "../state/context";
 import { PANE_COLORS } from "../utils/paneUtils";
+import { formatModelName } from "../utils/modelUtils";
 import { LlmPaneStartScreen } from "./LlmPaneStartScreen";
 import { ChatView } from "./chat/ChatView";
 import { GitBranch, X } from "lucide-react";
@@ -23,6 +24,10 @@ export function LlmPane({ paneId, gridArea }: Props) {
   const hasAnySession = !!(pane.sdkSessionIds && Object.keys(pane.sdkSessionIds).length > 0);
   const hasProjectSession = (pane.sdkSessionIds != null && projectId in pane.sdkSessionIds) || !!state.claudeSessions[`pane-${paneId}-proj-${projectId}`];
   const hasSession = pane.origin !== "empty" && (hasProjectSession || !hasAnySession);
+
+  const sessionId = `pane-${paneId}-proj-${projectId}`;
+  const session = state.claudeSessions[sessionId];
+  const isRunning = session?.status === "running" || session?.status === "waiting";
 
   return (
     <div
@@ -49,6 +54,11 @@ export function LlmPane({ paneId, gridArea }: Props) {
         )}
 
         {!pane.label && <span style={{ flex: 1 }} />}
+
+        {session?.model && (
+          <span className="chat-model">{formatModelName(session.model)}</span>
+        )}
+        {isRunning && <span className="chat-status-dot" />}
 
         {hasSession && (
           <button
